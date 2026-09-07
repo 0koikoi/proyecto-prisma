@@ -142,12 +142,13 @@ Cada desarrollador debe enfocarse en su respectivo módulo en `frontend/src/feat
 
 2. **Estrategia de Ramas (GitHub Flow):**
    - Nadie realiza commits directos a `main` ni a `develop`.
-   - Cada integrante crea su rama a partir de `develop`:
-     - `feat/front-pedidos-proveedores` (Zully)
-     - `feat/front-dashboard-auth` (Keila)
-     - `feat/front-inventario` (Mauricio)
-     - `feat/front-pos-caja` (Leo)
-     - `feat/front-finanzas` (Meli)
+   - Cada integrante clona el repositorio y trabaja en su rama oficial asignada:
+     - `feature/pedidos-proveedores` (Zully — Pedidos & Proveedores)
+     - `feature/dashboard-auth` (Keila — Dashboard & Autenticación)
+     - `feature/inventario-mercaderia` (Mauricio — Inventario & Categorías)
+     - `feature/punto-venta-caja` (Leo — POS & Caja)
+     - `feature/reporte-financiero` (Meli — Reportes Financieros & Rentabilidad)
+   - Al completar sus tareas, abren un Pull Request (PR) apuntando hacia `develop` para revisión de Zully.
 
 3. **Estilos con Tailwind CSS:**
    - No escribir CSS tradicional en archivos `.css`. Utilizar las clases utilitarias de Tailwind o las clases semánticas ya definidas en `src/index.css` (`.content-card`, `.btn`, `.btn-primary`, `.badge`, `.custom-table`, `.input-wrapper`).

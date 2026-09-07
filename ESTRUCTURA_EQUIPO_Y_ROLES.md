@@ -59,13 +59,15 @@ A partir de las necesidades del negocio definidas en `plan prisma.md`, el sistem
 
 ---
 
-## 3. Asignación Oficial de Roles para los 5 Integrantes
+## 3. Asignación Oficial de Roles y Ramas Git para los 5 Integrantes
 
-| **Zully** | **Líder del Proyecto, Control de Versiones (Git/GitHub), Pedidos & Proveedores** | `feature/orders/`<br>`feature/suppliers/` | `Order.java`<br>`OrderDetail.java`<br>`Supplier.java`<br>`Purchase.java`<br>`PurchaseDetail.java`<br>`OrderController.java`<br>`SupplierController.java` | `orders`, `order_details`, `suppliers`, `purchases`, `purchase_details` |
-| **Keila** | **Dashboard, Autenticación (JWT) & Configuración** | `feature/dashboard/`<br>`feature/auth/`<br>`feature/settings/`<br>`core/` y `shared/` | `User.java`<br>`UserRepository.java`<br>`AuthController.java`<br>`DashboardController.java`<br>`CorsConfig.java` | `users` |
-| **Mauricio** | **Inventario & Categorías** | `feature/inventory/` | `Product.java`<br>`Category.java`<br>`CategoryRepository.java`<br>`ProductRepository.java`<br>`ProductController.java`<br>`CategoryController.java` | `products`, `categories`, `inventory_movements` |
-| **Leo** | **Punto de Venta (POS) & Caja** | `feature/pos/`<br>`feature/cash-register/` | `CashRegister.java`<br>`Sale.java`<br>`SaleDetail.java`<br>`CashRegisterController.java`<br>`SaleController.java` | `sales`, `sale_details`, `cash_registers` |
-| **Meli** | **Reporte Financiero & Rentabilidad** | `feature/financial-reports/` | `FinancialTransaction.java`<br>`FinancialTransactionRepository.java`<br>`FinancialController.java` | `financial_transactions` |
+| Integrante | Rol y Responsabilidad | Rama Git Oficial | Clases Backend Asignadas | Tablas BD Relacionadas |
+|---|---|---|---|---|
+| **Zully** | **Líder del Proyecto, Control de Versiones (Git/GitHub), Pedidos & Proveedores** | `feature/pedidos-proveedores` | `Order.java`<br>`OrderDetail.java`<br>`Supplier.java`<br>`Purchase.java`<br>`PurchaseDetail.java`<br>`OrderController.java`<br>`SupplierController.java` | `orders`, `order_details`, `suppliers`, `purchases`, `purchase_details` |
+| **Keila** | **Dashboard, Autenticación (JWT) & Configuración** | `feature/dashboard-auth` | `User.java`<br>`UserRepository.java`<br>`AuthController.java`<br>`DashboardController.java`<br>`CorsConfig.java` | `users` |
+| **Mauricio** | **Inventario & Categorías** | `feature/inventario-mercaderia` | `Product.java`<br>`Category.java`<br>`CategoryRepository.java`<br>`ProductRepository.java`<br>`ProductController.java`<br>`CategoryController.java` | `products`, `categories`, `inventory_movements` |
+| **Leo** | **Punto de Venta (POS) & Caja** | `feature/punto-venta-caja` | `CashRegister.java`<br>`Sale.java`<br>`SaleDetail.java`<br>`CashRegisterController.java`<br>`SaleController.java` | `sales`, `sale_details`, `cash_registers` |
+| **Meli** | **Reporte Financiero & Rentabilidad** | `feature/reporte-financiero` | `FinancialTransaction.java`<br>`FinancialTransactionRepository.java`<br>`FinancialController.java` | `financial_transactions` |
 
 ---
 
