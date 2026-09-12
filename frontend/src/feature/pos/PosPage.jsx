@@ -13,6 +13,7 @@
  *  4. Lectura de código de barras (lector USB modo HID) vía usePos/scannerReady
  *  5. Ticket virtual: lista de productos con control de cantidad y total
  *  6. Modal de pago: selector de método + cálculo de vuelto en efectivo
+ *  7. Buscador rápido por teclado (Cmd/Ctrl+K) y atajos F2/F4/Esc (RNF02)
  *
  * CONEXIÓN CON BACKEND:
  *  - GET  /api/products?search=&categoryId= → catálogo del POS
@@ -23,15 +24,19 @@
  * TODO Leo: Validar que el botón "Cobrar" esté deshabilitado si no hay caja abierta.
  */
 import { useState } from 'react';
-import { Search, ScanLine } from 'lucide-react';
+import { Search, ScanLine, Command as CommandIcon } from 'lucide-react';
 import { Toaster, toast } from 'sonner';
+import { useHotkeys } from 'react-hotkeys-hook';
 import { usePos } from './hooks/usePos';
 import { useInventory } from '../inventory/hooks/useInventory';
 import { ProductGrid } from './components/ProductGrid';
 import { CartTicket } from './components/CartTicket';
 import { PaymentModal } from './components/PaymentModal';
+import { QuickSearchPalette } from './components/QuickSearchPalette';
 import { posService } from './services/posService';
 import { Input } from '../../shared/components/Input';
+
+const SEARCH_INPUT_ID = 'pos-search-input';
 
 export const PosPage = () => {
   const { allProducts } = useInventory();
@@ -42,6 +47,19 @@ export const PosPage = () => {
   } = usePos(allProducts);
 
   const [isPaymentOpen, setIsPaymentOpen] = useState(false);
+  const [isQuickSearchOpen, setIsQuickSearchOpen] = useState(false);
+
+  // Atajos de teclado de mostrador (RNF02: la interacción debe sentirse inmediata)
+  useHotkeys('mod+k', (e) => { e.preventDefault(); setIsQuickSearchOpen(true); });
+  useHotkeys('f2', (e) => {
+    e.preventDefault();
+    document.getElementById(SEARCH_INPUT_ID)?.focus();
+  });
+  useHotkeys('f4', (e) => {
+    e.preventDefault();
+    if (cart.length > 0) setIsPaymentOpen(true);
+  }, [cart.length]);
+  useHotkeys('esc', () => setIsPaymentOpen(false), { enabled: isPaymentOpen });
 
   const categories = ['ALL', 'Femenina', 'Urbana', 'Mascotas'];
 
@@ -76,14 +94,26 @@ export const PosPage = () => {
         {/* Búsqueda, estado del escáner y tabs de categoría */}
         <div className="flex flex-col gap-3">
           <div className="flex items-center gap-3">
-            <div className="flex-1">
+            <div className="flex-1 relative">
               <Input
+                name={SEARCH_INPUT_ID}
                 placeholder="Buscar producto por nombre o SKU..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 icon={Search}
               />
             </div>
+            {/* Buscador rápido por teclado (headless, cmdk) */}
+            <button
+              type="button"
+              onClick={() => setIsQuickSearchOpen(true)}
+              className="hidden md:flex items-center gap-1.5 px-3 h-10 rounded-lg text-xs font-semibold whitespace-nowrap border border-gray-200 bg-gray-50 text-gray-500 hover:border-gray-400 hover:text-gray-700 transition-colors cursor-pointer"
+              title="Buscador rápido de productos"
+            >
+              <CommandIcon size={14} />
+              <span>Buscar</span>
+              <kbd className="text-[10px] font-bold text-gray-400 border border-gray-300 rounded px-1">⌘K</kbd>
+            </button>
             {/* RF08: indicador discreto de lector de código de barras listo */}
             <div
               className={`flex items-center gap-1.5 px-3 h-10 rounded-lg text-xs font-semibold whitespace-nowrap border transition-colors ${
@@ -136,6 +166,13 @@ export const PosPage = () => {
         onClose={() => setIsPaymentOpen(false)}
         total={subtotal}
         onConfirmSale={handleSaleSuccess}
+      />
+
+      <QuickSearchPalette
+        open={isQuickSearchOpen}
+        onOpenChange={setIsQuickSearchOpen}
+        products={allProducts}
+        onSelect={addToCart}
       />
     </div>
   );
