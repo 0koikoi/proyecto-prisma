@@ -19,8 +19,12 @@
  * TODO Leo: Solo puede haber UNA caja abierta — validar en el backend.
  * TODO Leo: El cierre de caja calcula expectedCash = initialCash + totalCashSales.
  *           El sistema muestra la diferencia (sobrante o faltante).
+ *
+ * Atajos de teclado: F2 abre el turno, F4 lo cierra, Esc cierra el modal activo.
  */
 import { useState } from 'react';
+import { Toaster } from 'sonner';
+import { useHotkeys } from 'react-hotkeys-hook';
 import { Lock, Unlock, DollarSign, Smartphone, CreditCard } from 'lucide-react';
 import { useCashRegister } from './hooks/useCashRegister';
 import { CashOpenModal } from './components/CashOpenModal';
@@ -32,6 +36,10 @@ export const CashRegisterPage = () => {
   const { cashStatus, openCash, closeCash } = useCashRegister();
   const [isOpenModal, setIsOpenModal] = useState(false);
   const [isCloseModal, setIsCloseModal] = useState(false);
+
+  useHotkeys('f2', (e) => { e.preventDefault(); setIsOpenModal(true); });
+  useHotkeys('f4', (e) => { e.preventDefault(); setIsCloseModal(true); });
+  useHotkeys('esc', () => { setIsOpenModal(false); setIsCloseModal(false); }, { enabled: isOpenModal || isCloseModal });
 
   if (!cashStatus) return null;
 
@@ -45,13 +53,18 @@ export const CashRegisterPage = () => {
 
   return (
     <div className="page-container">
+      <Toaster position="top-center" theme="light" richColors />
+
       {/* Encabezado */}
       <div className="page-header">
         <div>
           <h1>Caja y Arqueo Diario</h1>
           <p className="text-sm text-gray-500 mt-0.5">Control de turno, sencillo inicial y cuadre de caja diario.</p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex items-center gap-3">
+          <span className="hidden md:inline text-[10px] font-semibold text-gray-400 border border-gray-200 rounded px-1.5 py-0.5">
+            F2 abrir · F4 cerrar
+          </span>
           <Button variant="secondary" icon={Lock} onClick={() => setIsCloseModal(true)}>
             Cerrar Turno
           </Button>
