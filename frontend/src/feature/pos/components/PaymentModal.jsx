@@ -6,11 +6,11 @@
  * calcular vuelto en efectivo y confirmar la venta.
  *
  * TODO Leo:
- *  - Conectar la confirmación con posService.processSale().
  *  - Enviar el ticket al backend e imprimir voucher o ticket digital si aplica.
  *  - Actualizar el estado de la caja sumando el monto al método correspondiente.
  */
 import { useState } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { Modal } from '../../../shared/components/Modal';
 import { Button } from '../../../shared/components/Button';
 import { formatCurrency } from '../../../shared/utils/formatters';
@@ -64,48 +64,59 @@ export const PaymentModal = ({ isOpen, onClose, total, onConfirmSale }) => {
               const Icon = m.icon;
               const isSelected = method === m.id;
               return (
-                <button
+                <motion.button
                   key={m.id}
                   type="button"
-                  className={`flex items-center justify-center gap-2 p-3 rounded-lg border text-sm font-semibold transition-all cursor-pointer bg-white ${
+                  whileTap={{ scale: 0.96 }}
+                  className={`flex items-center justify-center gap-2 p-3 rounded-lg border text-sm font-semibold transition-colors cursor-pointer bg-white ${
                     isSelected ? m.active : `${m.color} text-gray-700 hover:bg-gray-50`
                   }`}
                   onClick={() => setMethod(m.id)}
                 >
                   <Icon size={18} />
                   <span>{m.name}</span>
-                </button>
+                </motion.button>
               );
             })}
           </div>
         </div>
 
         {/* Sección de cálculo de vuelto en Efectivo */}
-        {method === 'EFECTIVO' && (
-          <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 space-y-3">
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-gray-700" htmlFor="cashGiven">
-                ¿Con cuánto paga el cliente? (S/)
-              </label>
-              <input
-                id="cashGiven"
-                type="number"
-                step="0.10"
-                placeholder={total.toString()}
-                className="w-full h-10 px-3 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 outline-none focus:ring-2 focus:ring-gray-900 focus:border-gray-900 transition-shadow"
-                value={cashGiven}
-                onChange={(e) => setCashGiven(e.target.value)}
-              />
-            </div>
+        <AnimatePresence initial={false}>
+          {method === 'EFECTIVO' && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.2 }}
+              className="overflow-hidden"
+            >
+              <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 space-y-3">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-gray-700" htmlFor="cashGiven">
+                    ¿Con cuánto paga el cliente? (S/)
+                  </label>
+                  <input
+                    id="cashGiven"
+                    type="number"
+                    step="0.10"
+                    placeholder={total.toString()}
+                    className="w-full h-10 px-3 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 outline-none focus:ring-2 focus:ring-gray-900 focus:border-gray-900 transition-shadow"
+                    value={cashGiven}
+                    onChange={(e) => setCashGiven(e.target.value)}
+                  />
+                </div>
 
-            <div className="flex justify-between items-center bg-white p-3 rounded-lg border border-gray-200 text-sm">
-              <span className="text-gray-600 font-medium">Vuelto a entregar:</span>
-              <span className={`text-base font-bold ${vuelto > 0 ? 'text-emerald-600 font-black' : 'text-gray-900'}`}>
-                {formatCurrency(vuelto)}
-              </span>
-            </div>
-          </div>
-        )}
+                <div className="flex justify-between items-center bg-white p-3 rounded-lg border border-gray-200 text-sm">
+                  <span className="text-gray-600 font-medium">Vuelto a entregar:</span>
+                  <span className={`text-base font-bold ${vuelto > 0 ? 'text-emerald-600 font-black' : 'text-gray-900'}`}>
+                    {formatCurrency(vuelto)}
+                  </span>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Botones de acción */}
         <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-100">

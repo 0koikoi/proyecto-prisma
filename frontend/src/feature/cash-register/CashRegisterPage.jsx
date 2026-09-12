@@ -21,6 +21,7 @@
  *           El sistema muestra la diferencia (sobrante o faltante).
  */
 import { useState } from 'react';
+import { Toaster } from 'sonner';
 import { Lock, Unlock, DollarSign, Smartphone, CreditCard } from 'lucide-react';
 import { useCashRegister } from './hooks/useCashRegister';
 import { CashOpenModal } from './components/CashOpenModal';
@@ -45,6 +46,8 @@ export const CashRegisterPage = () => {
 
   return (
     <div className="page-container">
+      <Toaster position="top-center" theme="light" richColors />
+
       {/* Encabezado */}
       <div className="page-header">
         <div>

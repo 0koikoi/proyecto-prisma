@@ -12,6 +12,7 @@
  *  - Mostrar alerta si hay faltante superior al margen de tolerancia.
  */
 import { useState } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { Modal } from '../../../shared/components/Modal';
 import { Input } from '../../../shared/components/Input';
 import { Button } from '../../../shared/components/Button';
@@ -61,35 +62,42 @@ export const CashCloseModal = ({ isOpen, onClose, onConfirm, expectedTotal }) =>
         />
 
         {/* Indicador de Descuadre */}
-        {countedCash !== '' && (
-          <div
-            className={`p-3.5 rounded-xl border flex items-center justify-between text-sm ${
-              difference === 0
-                ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
-                : difference < 0
-                ? 'bg-red-50 border-red-200 text-red-900'
-                : 'bg-amber-50 border-amber-200 text-amber-900'
-            }`}
-          >
-            <div className="flex items-center gap-2 font-semibold">
-              {difference === 0 ? (
-                <CheckCircle2 size={18} className="text-emerald-600" />
-              ) : (
-                <AlertCircle size={18} className={difference < 0 ? 'text-red-600' : 'text-amber-600'} />
-              )}
-              <span>
-                {difference === 0
-                  ? 'Cuadre Perfecto'
+        <AnimatePresence initial={false}>
+          {countedCash !== '' && (
+            <motion.div
+              key={difference === 0 ? 'ok' : difference < 0 ? 'short' : 'over'}
+              initial={{ opacity: 0, y: -6, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{ type: 'spring', stiffness: 400, damping: 28 }}
+              className={`p-3.5 rounded-xl border flex items-center justify-between text-sm ${
+                difference === 0
+                  ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
                   : difference < 0
-                  ? 'Faltante de Caja'
-                  : 'Sobrante de Caja'}
+                  ? 'bg-red-50 border-red-200 text-red-900'
+                  : 'bg-amber-50 border-amber-200 text-amber-900'
+              }`}
+            >
+              <div className="flex items-center gap-2 font-semibold">
+                {difference === 0 ? (
+                  <CheckCircle2 size={18} className="text-emerald-600" />
+                ) : (
+                  <AlertCircle size={18} className={difference < 0 ? 'text-red-600' : 'text-amber-600'} />
+                )}
+                <span>
+                  {difference === 0
+                    ? 'Cuadre Perfecto'
+                    : difference < 0
+                    ? 'Faltante de Caja'
+                    : 'Sobrante de Caja'}
+                </span>
+              </div>
+              <span className="font-mono font-bold text-base">
+                {formatCurrency(Math.abs(difference))}
               </span>
-            </div>
-            <span className="font-mono font-bold text-base">
-              {formatCurrency(Math.abs(difference))}
-            </span>
-          </div>
-        )}
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Observaciones */}
         <div className="flex flex-col gap-1.5">
