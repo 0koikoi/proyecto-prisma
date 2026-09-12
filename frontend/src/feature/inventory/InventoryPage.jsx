@@ -34,6 +34,8 @@ import { Input } from '../../shared/components/Input';
 export const InventoryPage = () => {
   const {
     products,
+    categories,
+    loading,
     search,
     setSearch,
     categoryFilter,
@@ -66,15 +68,15 @@ export const InventoryPage = () => {
   };
 
   return (
-    <div className="page-container">
+    <div className="page-container inventory-page">
       <div className="page-header">
         <div>
           <h1>Control de Inventario</h1>
-          <p className="text-sm text-gray-500 mt-0.5">
+          <p className="text-sm text-[color:var(--inv-text-primary)] mt-0.5">
             Catálogo unificado de productos — tienda física y tienda online.
           </p>
         </div>
-        <Button variant="primary" icon={Plus} onClick={handleOpenCreate}>
+        <Button variant="primary" icon={Plus} onClick={handleOpenCreate} disabled={loading}>
           Nuevo Producto
         </Button>
       </div>
@@ -94,7 +96,7 @@ export const InventoryPage = () => {
           <select
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
-            className="h-10 px-3 border border-gray-300 rounded-lg text-sm bg-white text-gray-700 outline-none focus:ring-2 focus:ring-gray-900"
+            className="h-10 px-3 border border-gray-300 rounded-lg text-sm bg-white text-[color:var(--inv-text-primary)] outline-none focus:ring-2 focus:ring-gray-900"
           >
             <option value="ALL">Todas las Categorías</option>
             <option value="Femenina">Ropa Juvenil Femenina</option>
@@ -118,6 +120,7 @@ export const InventoryPage = () => {
         onClose={() => setIsModalOpen(false)}
         onSave={handleSave}
         product={selectedProduct}
+        categories={categories}
       />
     </div>
   );

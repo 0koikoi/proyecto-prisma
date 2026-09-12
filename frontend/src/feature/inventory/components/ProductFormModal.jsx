@@ -1,90 +1,128 @@
-/**
- * RESPONSABLE: Mauricio
- * MÓDULO: Inventario — Formulario de Producto
- *
- * Modal para crear o editar un producto del catálogo.
- *
- * TODO Mauricio: Agregar campo "Código de Barras" (barcode) — RF06.
- * TODO Mauricio: Agregar campo "Costo de Compra (S/)" (costPrice) — REQUERIDO para márgenes.
- * TODO Mauricio: Agregar campo "Proveedor" — select cargado desde GET /api/suppliers.
- * TODO Mauricio: Agregar campo "Imagen URL" o upload de imagen.
- * TODO Mauricio: Agregar validación del formulario antes de llamar a onSave().
- */
-import { useState, useEffect } from 'react';
-import { Modal } from '../../../shared/components/Modal';
-import { Input } from '../../../shared/components/Input';
-import { Button } from '../../../shared/components/Button';
+import { useEffect, useRef, useState } from 'react';
+import { InventoryButton, InventoryField, InventoryModal, ProductImage, controlClass } from './InventoryUI';
+import { validateProduct } from '../utils/inventory';
 
-const EMPTY_FORM = {
-  name: '',
-  sku: '',
-  barcode: '',   // TODO Mauricio: código de barras EAN/UPC (opcional)
-  category: 'Femenina',
-  costPrice: '', // TODO Mauricio: costo de compra (requerido para margen)
-  price: '',
-  stock: '',
-};
+function ProductForm({ onClose, onSave, product, categories = [] }) {
+  const [form, setForm] = useState(() => ({ name: '', sku: '', barcode: '', description: '', costPrice: '', price: '', stock: '', minStockAlert: 3, imageUrl: '', ...product,
+    categoryId: String(product?.categoryId ?? categories.find((c) => c.name === product?.category)?.id ?? categories[0]?.id ?? '') }));
+  const [errors, setErrors] = useState({});
+  const [saveError, setSaveError] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [reading, setReading] = useState(false);
+  const [fileError, setFileError] = useState('');
+  const readerVersion = useRef(0);
+  const fileInput = useRef(null);
+  useEffect(() => () => { readerVersion.current += 1; }, []);
 
-export const ProductFormModal = ({ isOpen, onClose, onSave, product }) => {
-  const [form, setForm] = useState(EMPTY_FORM);
-
-  useEffect(() => {
-    setForm(product ? { ...EMPTY_FORM, ...product } : EMPTY_FORM);
-  }, [product, isOpen]);
-
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
+  const handleChange = ({ target: { name, value } }) => {
+    setForm((previous) => ({ ...previous, [name]: value }));
+    setErrors((previous) => ({ ...previous, [name]: undefined }));
+    setSaveError('');
+  };
+  const setImageUrl = (value) => {
+    readerVersion.current += 1;
+    setReading(false);
+    setFileError('');
+    if (fileInput.current) fileInput.current.value = '';
+    handleChange({ target: { name: 'imageUrl', value } });
+  };
+  const selectFile = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const version = ++readerVersion.current;
+    setFileError('');
+    setReading(false);
+    if (!['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.type) || file.size > 5 * 1024 * 1024) {
+      setFileError('Selecciona una imagen JPG, PNG, WebP o GIF de hasta 5 MB.');
+      event.target.value = '';
+      return;
+    }
+    setReading(true);
+    try {
+      const url = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(new Error('No se pudo leer la imagen.'));
+        reader.readAsDataURL(file);
+      });
+      const image = new Image();
+      image.src = url;
+      await image.decode();
+      if (version === readerVersion.current) handleChange({ target: { name: 'imageUrl', value: url } });
+    } catch {
+      if (version === readerVersion.current) setFileError('No se pudo abrir la imagen. Selecciona otro archivo.');
+    } finally { if (version === readerVersion.current) setReading(false); }
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    // TODO Mauricio: validar que costPrice y price sean números positivos
-    onSave({
-      ...form,
-      price: parseFloat(form.price),
-      costPrice: parseFloat(form.costPrice),
-      stock: parseInt(form.stock, 10),
-    });
-    onClose();
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    if (saving || reading) return;
+    const nextErrors = validateProduct(form);
+    setErrors(nextErrors);
+    if (Object.keys(nextErrors).length || fileError) return;
+    setSaving(true);
+    setSaveError('');
+    try {
+      await onSave({ ...form, name: form.name.trim(), categoryId: Number(form.categoryId), price: Number(form.price), costPrice: Number(form.costPrice), stock: Number(form.stock), minStockAlert: Number(form.minStockAlert) });
+      onClose();
+    } catch (error) { setSaveError(error.message || 'No se pudo guardar el producto.'); }
+    finally { setSaving(false); }
   };
 
-  return (
-    <Modal isOpen={isOpen} onClose={onClose} title={product ? 'Editar Producto' : 'Nuevo Producto'}>
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-        <Input label="Nombre del Producto" name="name" value={form.name} onChange={handleChange} required />
-
-        <div className="grid grid-cols-2 gap-3">
-          <Input label="SKU Corto" name="sku" value={form.sku} onChange={handleChange} placeholder="ej. URB-001" required />
-          <Input label="Código de Barras (EAN/UPC)" name="barcode" value={form.barcode} onChange={handleChange} placeholder="ej. 7751234567890 (opcional)" />
+  const field = (name, label, props = {}) => <InventoryField name={name} label={label} value={form[name]} onChange={handleChange} error={errors[name]} {...props} />;
+  const margin = Number(form.price) - Number(form.costPrice);
+  return <InventoryModal title={product ? 'Editar producto' : 'Nuevo producto'} onClose={onClose} busy={saving || reading}>
+    <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
+      <fieldset disabled={saving} className="flex min-w-0 flex-col gap-4">
+        {field('name', 'Nombre del producto', { required: true })}
+        <div className="grid gap-3 sm:grid-cols-2">
+          {field('sku', 'SKU', { placeholder: 'URB-001', required: true, pattern: '[A-Z]{2,8}-[0-9]{3,8}', autoCapitalize: 'characters' })}
+          {field('barcode', 'Código de barras (opcional)')}
         </div>
-
         <div className="flex flex-col gap-1.5">
-          <label className="input-label" htmlFor="category">Categoría</label>
-          <div className="input-wrapper">
-            <select id="category" name="category" value={form.category} onChange={handleChange} className="input-element">
-              <option value="Femenina">Ropa Juvenil Femenina</option>
-              <option value="Urbana">Ropa Urbana</option>
-              <option value="Mascotas">Ropa de Mascotas</option>
-            </select>
+          <label htmlFor="product-category" className="text-xs font-semibold">Categoría *</label>
+          <select id="product-category" name="categoryId" value={form.categoryId} onChange={handleChange} className={controlClass} aria-invalid={!!errors.categoryId} aria-describedby={errors.categoryId ? 'category-error' : undefined}>
+            <option value="">Selecciona una categoría</option>
+            {categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
+          </select>
+          {errors.categoryId && <p id="category-error" role="alert" className="text-xs">{errors.categoryId}</p>}
+        </div>
+        {field('description', 'Descripción (opcional)')}
+        <div className="grid gap-3 sm:grid-cols-2">
+          {field('costPrice', 'Costo de compra (S/)', { type: 'number', min: '0.01', step: '0.01', required: true })}
+          {field('price', 'Precio de venta (S/)', { type: 'number', min: '0.01', step: '0.01', required: true })}
+        </div>
+        {Number(form.costPrice) > 0 && Number(form.price) > 0 && <p className="rounded-md border border-dashed border-[#1C1C1C]/30 p-3 text-sm">Margen por unidad: <strong>S/ {margin.toFixed(2)}</strong> ({(margin / Number(form.price) * 100).toFixed(1)}%)</p>}
+        <div className="grid gap-3 sm:grid-cols-2">
+          {field('stock', product ? 'Stock' : 'Stock inicial', { type: 'number', min: '0', step: '1', required: true })}
+          {field('minStockAlert', 'Umbral de stock bajo', { type: 'number', min: '0', step: '1', required: true })}
+        </div>
+        <fieldset className="rounded-lg border border-[#1C1C1C]/20 p-3">
+          <legend className="px-1 text-xs font-semibold">Imagen del producto (opcional)</legend>
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <ProductImage src={form.imageUrl} name={form.name || 'Previsualización'} className="h-24 w-24" />
+            <div className="flex min-w-0 flex-1 flex-col gap-3">
+              <InventoryField label="URL de imagen" type="url" value={form.imageUrl.startsWith('data:') ? '' : form.imageUrl} onChange={(event) => setImageUrl(event.target.value)} placeholder="https://ejemplo.com/producto.jpg" error={errors.imageUrl} />
+              <label className="flex flex-col gap-1 text-xs font-medium">O selecciona un archivo
+                <input ref={fileInput} type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={selectFile} className="w-full text-xs file:mr-2 file:rounded file:border file:border-[#1C1C1C]/30 file:px-2 file:py-1" />
+              </label>
+              <p className="text-xs">JPG, PNG, WebP o GIF. Máximo 5 MB.</p>
+              {reading && <p role="status" className="text-xs">Procesando imagen…</p>}
+              {fileError && <p role="alert" className="text-xs font-semibold">{fileError}</p>}
+              {(form.imageUrl || fileError) && <InventoryButton secondary onClick={() => setImageUrl('')}>Quitar imagen</InventoryButton>}
+            </div>
           </div>
-        </div>
+        </fieldset>
+      </fieldset>
+      {saveError && <p role="alert" className="text-sm font-semibold">{saveError}</p>}
+      <div className="flex flex-wrap justify-end gap-3 border-t border-[#1C1C1C]/20 pt-4">
+        <InventoryButton secondary onClick={onClose} disabled={saving || reading}>Cancelar</InventoryButton>
+        <InventoryButton type="submit" disabled={saving || reading}>{saving ? 'Guardando…' : product ? 'Guardar cambios' : 'Registrar producto'}</InventoryButton>
+      </div>
+    </form>
+  </InventoryModal>;
+}
 
-        <div className="grid grid-cols-2 gap-3">
-          {/* TODO Mauricio: el costPrice es OBLIGATORIO para que Meli pueda calcular márgenes */}
-          <Input label="Costo de Compra (S/)" name="costPrice" type="number" value={form.costPrice} onChange={handleChange} placeholder="0.00" required />
-          <Input label="Precio de Venta (S/)" name="price" type="number" value={form.price} onChange={handleChange} placeholder="0.00" required />
-        </div>
-
-        <Input label="Stock Inicial" name="stock" type="number" value={form.stock} onChange={handleChange} placeholder="0" required />
-
-        {/* TODO Mauricio: agregar el select de Proveedor (GET /api/suppliers) */}
-
-        <div className="flex justify-end gap-3 pt-2">
-          <Button variant="secondary" onClick={onClose}>Cancelar</Button>
-          <Button type="submit" variant="primary">{product ? 'Guardar Cambios' : 'Registrar Producto'}</Button>
-        </div>
-      </form>
-    </Modal>
-  );
-};
+export function ProductFormModal({ isOpen, ...props }) {
+  return isOpen ? <ProductForm key={props.product?.id ?? 'new'} {...props} /> : null;
+}
