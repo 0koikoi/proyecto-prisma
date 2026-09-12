@@ -1,22 +1,23 @@
 /**
- * RESPONSABLE: Keila
- * MÓDULO: Layout Principal
- *
- * Layout envuelve todas las páginas protegidas del sistema.
- * Estructura: Sidebar izquierdo fijo + Navbar superior + contenido con <Outlet />.
- *
- * No modificar este archivo sin coordinar con Zully (Líder del Proyecto) — afecta todas las vistas.
+ * Layout principal
+ * Contenedor general con menú lateral y barra superior.
  */
+import { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { Navbar } from './Navbar';
 
 export const MainLayout = () => {
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  const toggleSidebar = () => setIsSidebarOpen((prev) => !prev);
+  const closeSidebar = () => setIsSidebarOpen(false);
+
   return (
     <div className="layout-root">
-      <Sidebar />
+      <Sidebar isOpen={isSidebarOpen} onClose={closeSidebar} />
       <div className="layout-content-wrapper">
-        <Navbar />
+        <Navbar onToggleSidebar={toggleSidebar} />
         <main className="layout-page-content">
           <Outlet />
         </main>

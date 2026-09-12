@@ -11,6 +11,7 @@
  */
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './core/context/AuthContext';
+import { ToastProvider } from './core/context/ToastContext';
 import { ProtectedRoute } from './core/guards/ProtectedRoute';
 import { MainLayout } from './shared/components/MainLayout';
 import { ROUTES } from './shared/constants/routes';
@@ -30,9 +31,10 @@ function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <Routes>
-          {/* Pública */}
-          <Route path={ROUTES.LOGIN} element={<LoginPage />} />
+        <ToastProvider>
+          <Routes>
+            {/* Pública */}
+            <Route path={ROUTES.LOGIN} element={<LoginPage />} />
 
           {/* Protegidas — requieren autenticación */}
           <Route element={<ProtectedRoute />}>
@@ -66,6 +68,7 @@ function App() {
           {/* Fallback */}
           <Route path="*" element={<Navigate to={ROUTES.DASHBOARD} replace />} />
         </Routes>
+        </ToastProvider>
       </AuthProvider>
     </BrowserRouter>
   );

@@ -1,22 +1,6 @@
 /**
- * RESPONSABLE: Zully
- * MÓDULO: Proveedores
- *
- * Página del directorio de proveedores de Tienda Prisma.
- *
- * SECCIONES A IMPLEMENTAR:
- *  1. Tabla de proveedores con datos de contacto (razón social, contacto, teléfono, RUC)
- *  2. Botón "Nuevo Proveedor" → formulario CRUD de proveedor
- *  3. Vista de detalle de proveedor → historial de reposiciones de stock
- *  4. Botón "Registrar Reposición" dentro del detalle del proveedor
- *
- * CONEXIÓN CON BACKEND:
- *  - GET  /api/suppliers                        → listar proveedores
- *  - POST /api/suppliers                        → crear proveedor
- *  - PUT  /api/suppliers/{id}                   → editar proveedor
- *  - GET  /api/suppliers/{id}/purchases         → historial de reposiciones
- *  - POST /api/suppliers/{id}/purchases         → registrar reposición de stock
- *    (Al registrar: actualiza el stock de los productos + crea InventoryMovement)
+ * Directorio de proveedores
+ * Contactos de talleres textiles y distribuidores.
  *
  * TODO Zully: Conectar la tabla con GET /api/suppliers.
  * TODO Zully: Implementar el formulario de nuevo proveedor (RF18).
@@ -29,8 +13,10 @@ import { Plus } from 'lucide-react';
 import { suppliersService } from './services/suppliersService';
 import { SuppliersTable } from './components/SuppliersTable';
 import { Button } from '../../shared/components/Button';
+import { useToast } from '../../core/context/ToastContext';
 
 export const SuppliersPage = () => {
+  const { showToast } = useToast();
   const [suppliers, setSuppliers] = useState([]);
 
   useEffect(() => {
@@ -48,7 +34,11 @@ export const SuppliersPage = () => {
           </p>
         </div>
         {/* TODO Zully: abrir modal de formulario de nuevo proveedor */}
-        <Button variant="primary" icon={Plus} onClick={() => alert('Abrir formulario de nuevo proveedor')}>
+        <Button
+          variant="primary"
+          icon={Plus}
+          onClick={() => showToast('Módulo de registro de proveedor en desarrollo.', 'info')}
+        >
           Nuevo Proveedor
         </Button>
       </div>
