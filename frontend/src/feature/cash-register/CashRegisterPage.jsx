@@ -29,6 +29,8 @@ import { Lock, Unlock, DollarSign, Smartphone, CreditCard } from 'lucide-react';
 import { useCashRegister } from './hooks/useCashRegister';
 import { CashOpenModal } from './components/CashOpenModal';
 import { CashCloseModal } from './components/CashCloseModal';
+import { CashRegisterSkeleton } from './components/CashRegisterSkeleton';
+import { MobileSidebarDrawer } from '../pos/components/MobileSidebarDrawer';
 import { Button } from '../../shared/components/Button';
 import { formatCurrency, formatDate } from '../../shared/utils/formatters';
 
@@ -41,7 +43,7 @@ export const CashRegisterPage = () => {
   useHotkeys('f4', (e) => { e.preventDefault(); setIsCloseModal(true); });
   useHotkeys('esc', () => { setIsOpenModal(false); setIsCloseModal(false); }, { enabled: isOpenModal || isCloseModal });
 
-  if (!cashStatus) return null;
+  if (!cashStatus) return <CashRegisterSkeleton />;
 
   const totalIngresos =
     cashStatus.totalCashSales +
@@ -53,37 +55,41 @@ export const CashRegisterPage = () => {
 
   return (
     <div className="page-container">
+      {/* Botón de menú móvil: hijo directo del contenedor de página completa
+          para que el `sticky` tenga recorrido en todo el alto de la vista */}
+      <MobileSidebarDrawer />
+
       <Toaster position="top-center" theme="light" richColors />
 
       {/* Encabezado */}
-      <div className="page-header">
+      <div className="page-header flex-col sm:flex-row items-stretch sm:items-center gap-4">
         <div>
           <h1>Caja y Arqueo Diario</h1>
           <p className="text-sm text-gray-500 mt-0.5">Control de turno, sencillo inicial y cuadre de caja diario.</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <span className="hidden md:inline text-[10px] font-semibold text-gray-400 border border-gray-200 rounded px-1.5 py-0.5">
             F2 abrir · F4 cerrar
           </span>
-          <Button variant="secondary" icon={Lock} onClick={() => setIsCloseModal(true)}>
+          <Button variant="secondary" icon={Lock} onClick={() => setIsCloseModal(true)} className="flex-1 sm:flex-none">
             Cerrar Turno
           </Button>
-          <Button variant="primary" icon={Unlock} onClick={() => setIsOpenModal(true)}>
+          <Button variant="primary" icon={Unlock} onClick={() => setIsOpenModal(true)} className="flex-1 sm:flex-none">
             Abrir Turno
           </Button>
         </div>
       </div>
 
       {/* Estado del turno */}
-      <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex items-center justify-between">
+      <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div className="flex items-center gap-3">
-          <span className="w-3 h-3 rounded-full bg-emerald-500 animate-pulse" />
+          <span className="w-3 h-3 rounded-full bg-emerald-500 animate-pulse shrink-0" />
           <div>
             <p className="text-sm font-bold text-emerald-900">Caja del Turno: ABIERTA</p>
             <p className="text-xs text-emerald-700">Abierta por {cashStatus.openedBy ?? 'Personal'} a las {formatDate(cashStatus.openedAt)}</p>
           </div>
         </div>
-        <div className="text-right">
+        <div className="sm:text-right">
           <p className="text-xs text-emerald-700 font-semibold uppercase tracking-wide">Sencillo Inicial</p>
           <p className="text-xl font-bold text-emerald-900">{formatCurrency(cashStatus.initialCash)}</p>
         </div>
@@ -102,12 +108,12 @@ export const CashRegisterPage = () => {
 
       {/* Resumen del arqueo */}
       <div className="content-card">
-        <div className="flex items-center justify-between border-b border-gray-100 pb-4 mb-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-gray-100 pb-4 mb-4">
           <div>
             <p className="text-xs font-semibold text-gray-500 uppercase">Total Ventas Registradas</p>
             <p className="text-2xl font-black text-gray-950">{formatCurrency(totalIngresos)}</p>
           </div>
-          <div className="text-right">
+          <div className="sm:text-right">
             <p className="text-xs font-semibold text-gray-500 uppercase">Efectivo Físico Esperado</p>
             <p className="text-2xl font-black text-emerald-600">{formatCurrency(efectivoEsperado)}</p>
           </div>

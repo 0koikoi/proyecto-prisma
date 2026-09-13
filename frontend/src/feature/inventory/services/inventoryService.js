@@ -15,74 +15,19 @@
  *
  * TODO Mauricio:
  *  - Reemplazar las respuestas mock por apiClient.<metodo>('/products...') al conectar con Spring Boot.
+ *
+ * DATOS MOCK: viven en mockProducts.json / mockCategories.json (no inline) para
+ * poder editarlos rápido al probar escenarios de POS/Caja — catálogo variado con
+ * productos agotados (stock 0), con stock bajo (<= minStockAlert) y normales.
+ * Los primeros 4 productos siguen alineados 1:1 con el seed de `database/init.sql`;
+ * el resto es dataset de prueba adicional del frontend, no está en ese seed todavía.
  */
 import { apiClient } from '../../../core/api/apiClient';
+import mockProductsData from './mockProducts.json';
+import mockCategoriesData from './mockCategories.json';
 
-// Datos de simulación inicial alineados con database/init.sql
-const MOCK_PRODUCTS = [
-  {
-    id: 1,
-    sku: 'URB-001',
-    barcode: '7751234567890',
-    name: 'Polera Oversize Urban',
-    description: 'Algodón reactivo 100% corte amplio unisex',
-    category: 'Urbana',
-    categoryId: 2,
-    costPrice: 38.00,
-    price: 69.90,
-    stock: 12,
-    minStockAlert: 3,
-    isActive: true,
-  },
-  {
-    id: 2,
-    sku: 'FEM-002',
-    barcode: '7751234567891',
-    name: 'Vestido Floral Verano',
-    description: 'Tela chalis suave con estampado veraniego',
-    category: 'Femenina',
-    categoryId: 1,
-    costPrice: 45.00,
-    price: 89.00,
-    stock: 3,
-    minStockAlert: 2,
-    isActive: true,
-  },
-  {
-    id: 3,
-    sku: 'PET-003',
-    barcode: '7751234567892',
-    name: 'Capa Impermeable Mascota M',
-    description: 'Impermeable con forro térmico y broche ajustable',
-    category: 'Mascotas',
-    categoryId: 3,
-    costPrice: 18.00,
-    price: 35.00,
-    stock: 1,
-    minStockAlert: 3,
-    isActive: true,
-  },
-  {
-    id: 4,
-    sku: 'URB-004',
-    barcode: '7751234567893',
-    name: 'Jogger Cargo Beige',
-    description: 'Dril pesado con bolsillos laterales y elástico en tobillo',
-    category: 'Urbana',
-    categoryId: 2,
-    costPrice: 42.00,
-    price: 75.00,
-    stock: 0,
-    minStockAlert: 2,
-    isActive: true,
-  },
-];
-
-const MOCK_CATEGORIES = [
-  { id: 1, name: 'Femenina', description: 'Ropa juvenil femenina de temporada' },
-  { id: 2, name: 'Urbana', description: 'Moda urbana y streetwear unisex' },
-  { id: 3, name: 'Mascotas', description: 'Prendas y accesorios para mascotas' },
-];
+const MOCK_PRODUCTS = mockProductsData;
+const MOCK_CATEGORIES = mockCategoriesData;
 
 export const inventoryService = {
   async getProducts() {

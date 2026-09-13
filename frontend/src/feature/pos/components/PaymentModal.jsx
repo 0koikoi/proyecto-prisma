@@ -5,45 +5,84 @@
  * Modal para seleccionar el medio de pago (Yape, Plin, Efectivo, Tarjeta),
  * calcular vuelto en efectivo y confirmar la venta.
  *
+ * VALIDACIÓN (react-hook-form + zod):
+ *  - Si el método es EFECTIVO, el monto entregado por el cliente debe ser
+ *    al menos el total a pagar (antes se podía confirmar la venta con un
+ *    monto insuficiente sin ningún aviso — el vuelto simplemente quedaba en 0).
+ *  - Al elegir Efectivo, el campo se precarga con el total exacto (vuelto 0)
+ *    para no obligar a tipear si el cliente paga justo.
+ *
  * TODO Leo:
  *  - Enviar el ticket al backend e imprimir voucher o ticket digital si aplica.
  *  - Actualizar el estado de la caja sumando el monto al método correspondiente.
  */
-import { useState } from 'react';
+import { useEffect } from 'react';
+import { useForm, Controller } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import { motion, AnimatePresence } from 'motion/react';
 import { Modal } from '../../../shared/components/Modal';
 import { Button } from '../../../shared/components/Button';
 import { formatCurrency } from '../../../shared/utils/formatters';
 import { Banknote, Smartphone, CreditCard, CheckCircle } from 'lucide-react';
 
+const paymentMethods = [
+  { id: 'YAPE', name: 'Yape', icon: Smartphone, color: 'border-purple-200 hover:border-purple-400', active: 'border-purple-600 bg-purple-50 text-purple-900 ring-1 ring-purple-600' },
+  { id: 'PLIN', name: 'Plin', icon: Smartphone, color: 'border-cyan-200 hover:border-cyan-400', active: 'border-cyan-600 bg-cyan-50 text-cyan-900 ring-1 ring-cyan-600' },
+  { id: 'EFECTIVO', name: 'Efectivo', icon: Banknote, color: 'border-emerald-200 hover:border-emerald-400', active: 'border-emerald-600 bg-emerald-50 text-emerald-900 ring-1 ring-emerald-600' },
+  { id: 'TARJETA', name: 'Tarjeta', icon: CreditCard, color: 'border-blue-200 hover:border-blue-400', active: 'border-blue-600 bg-blue-50 text-blue-900 ring-1 ring-blue-600' },
+];
+
 export const PaymentModal = ({ isOpen, onClose, total, onConfirmSale }) => {
-  const [method, setMethod] = useState('YAPE'); // 'EFECTIVO', 'YAPE', 'PLIN', 'TARJETA'
-  const [cashGiven, setCashGiven] = useState('');
+  const schema = z
+    .object({
+      method: z.enum(['YAPE', 'PLIN', 'EFECTIVO', 'TARJETA']),
+      cashGiven: z.string().optional(),
+    })
+    .superRefine((data, ctx) => {
+      if (data.method === 'EFECTIVO') {
+        const val = parseFloat(data.cashGiven);
+        if (Number.isNaN(val) || val < total) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['cashGiven'],
+            message: `Debe ser al menos ${formatCurrency(total)}`,
+          });
+        }
+      }
+    });
 
-  const vuelto = method === 'EFECTIVO' && parseFloat(cashGiven) > total
-    ? parseFloat(cashGiven) - total
-    : 0;
+  const { control, handleSubmit, watch, setValue, reset, formState: { errors } } = useForm({
+    resolver: zodResolver(schema),
+    defaultValues: { method: 'YAPE', cashGiven: '' },
+  });
 
-  const handleConfirm = () => {
+  const method = watch('method');
+  const cashGivenRaw = watch('cashGiven');
+  const cashGivenNum = parseFloat(cashGivenRaw);
+  const vuelto = method === 'EFECTIVO' && cashGivenNum > total ? cashGivenNum - total : 0;
+
+  // Al abrir el modal o cambiar el total, reinicia el formulario con el total exacto precargado
+  useEffect(() => {
+    if (isOpen) {
+      reset({ method: 'YAPE', cashGiven: total.toFixed(2) });
+    }
+  }, [isOpen, total, reset]);
+
+  const submit = (data) => {
+    const finalCashGiven = data.method === 'EFECTIVO' ? parseFloat(data.cashGiven) : total;
     onConfirmSale({
-      paymentMethod: method,
+      paymentMethod: data.method,
       total,
-      cashGiven: method === 'EFECTIVO' ? parseFloat(cashGiven) || total : total,
+      cashGiven: finalCashGiven,
       vuelto,
     });
     onClose();
   };
 
-  const paymentMethods = [
-    { id: 'YAPE', name: 'Yape', icon: Smartphone, color: 'border-purple-200 hover:border-purple-400', active: 'border-purple-600 bg-purple-50 text-purple-900 ring-1 ring-purple-600' },
-    { id: 'PLIN', name: 'Plin', icon: Smartphone, color: 'border-cyan-200 hover:border-cyan-400', active: 'border-cyan-600 bg-cyan-50 text-cyan-900 ring-1 ring-cyan-600' },
-    { id: 'EFECTIVO', name: 'Efectivo', icon: Banknote, color: 'border-emerald-200 hover:border-emerald-400', active: 'border-emerald-600 bg-emerald-50 text-emerald-900 ring-1 ring-emerald-600' },
-    { id: 'TARJETA', name: 'Tarjeta', icon: CreditCard, color: 'border-blue-200 hover:border-blue-400', active: 'border-blue-600 bg-blue-50 text-blue-900 ring-1 ring-blue-600' },
-  ];
-
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Procesar Cobro de Venta" maxWidth="max-w-md">
-      <div className="space-y-5">
+      <form onSubmit={handleSubmit(submit)} className="space-y-5">
         {/* Banner de Total a Pagar */}
         <div className="bg-gray-950 text-white rounded-xl p-5 text-center shadow-inner">
           <span className="text-xs uppercase tracking-wider text-gray-400 font-semibold block mb-1">
@@ -71,7 +110,7 @@ export const PaymentModal = ({ isOpen, onClose, total, onConfirmSale }) => {
                   className={`flex items-center justify-center gap-2 p-3 rounded-lg border text-sm font-semibold transition-colors cursor-pointer bg-white ${
                     isSelected ? m.active : `${m.color} text-gray-700 hover:bg-gray-50`
                   }`}
-                  onClick={() => setMethod(m.id)}
+                  onClick={() => setValue('method', m.id, { shouldValidate: true })}
                 >
                   <Icon size={18} />
                   <span>{m.name}</span>
@@ -96,15 +135,28 @@ export const PaymentModal = ({ isOpen, onClose, total, onConfirmSale }) => {
                   <label className="text-xs font-semibold text-gray-700" htmlFor="cashGiven">
                     ¿Con cuánto paga el cliente? (S/)
                   </label>
-                  <input
-                    id="cashGiven"
-                    type="number"
-                    step="0.10"
-                    placeholder={total.toString()}
-                    className="w-full h-10 px-3 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 outline-none focus:ring-2 focus:ring-gray-900 focus:border-gray-900 transition-shadow"
-                    value={cashGiven}
-                    onChange={(e) => setCashGiven(e.target.value)}
+                  <Controller
+                    name="cashGiven"
+                    control={control}
+                    render={({ field }) => (
+                      <input
+                        id="cashGiven"
+                        type="number"
+                        step="0.10"
+                        placeholder={total.toString()}
+                        className={`w-full h-10 px-3 bg-white border rounded-lg text-sm text-gray-900 outline-none focus:ring-2 transition-shadow ${
+                          errors.cashGiven
+                            ? 'border-red-400 focus:ring-red-400 focus:border-red-400'
+                            : 'border-gray-300 focus:ring-gray-900 focus:border-gray-900'
+                        }`}
+                        value={field.value}
+                        onChange={field.onChange}
+                      />
+                    )}
                   />
+                  {errors.cashGiven && (
+                    <span className="text-xs text-red-500">{errors.cashGiven.message}</span>
+                  )}
                 </div>
 
                 <div className="flex justify-between items-center bg-white p-3 rounded-lg border border-gray-200 text-sm">
@@ -123,11 +175,11 @@ export const PaymentModal = ({ isOpen, onClose, total, onConfirmSale }) => {
           <Button variant="secondary" onClick={onClose}>
             Cancelar
           </Button>
-          <Button variant="primary" icon={CheckCircle} onClick={handleConfirm}>
+          <Button type="submit" variant="primary" icon={CheckCircle}>
             Confirmar y Emitir Ticket
           </Button>
         </div>
-      </div>
+      </form>
     </Modal>
   );
 };

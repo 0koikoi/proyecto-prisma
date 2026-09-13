@@ -15,27 +15,34 @@
  */
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { toast } from 'sonner';
+import { playSound } from 'react-sounds';
 import KeyboardBarcodeScanner from '@point-of-sale/keyboard-barcode-scanner';
+import { formatCurrency } from '../../../shared/utils/formatters';
 
 export const usePos = (catalog = []) => {
   const [cart, setCart] = useState([]);
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('ALL');
   const [scannerReady, setScannerReady] = useState(false);
+  // Descuento manual del ticket: { type: 'PERCENT' | 'AMOUNT', value: number } o null
+  const [discount, setDiscount] = useState(null);
   const catalogRef = useRef(catalog);
   catalogRef.current = catalog;
 
   const addToCart = useCallback((product) => {
     if (product.stock <= 0) {
       toast.error(`"${product.name}" está agotado.`);
+      playSound('notification/error', { volume: 0.4 });
       return;
     }
 
+    let added = true;
     setCart((prev) => {
       const existing = prev.find((item) => item.id === product.id);
       if (existing) {
         if (existing.quantity >= product.stock) {
           toast.error(`Stock máximo: solo hay ${product.stock} unidades de "${product.name}".`);
+          added = false;
           return prev;
         }
         return prev.map((item) =>
@@ -44,6 +51,7 @@ export const usePos = (catalog = []) => {
       }
       return [...prev, { ...product, quantity: 1 }];
     });
+    playSound(added ? 'ui/item_select' : 'notification/warning', { volume: 0.4 });
   }, []);
 
   const updateQuantity = (productId, delta) => {
@@ -54,6 +62,7 @@ export const usePos = (catalog = []) => {
             const newQty = item.quantity + delta;
             if (newQty > item.stock) {
               toast.error(`Stock máximo alcanzado (${item.stock} unidades).`);
+              playSound('notification/warning', { volume: 0.4 });
               return item;
             }
             return newQty > 0 ? { ...item, quantity: newQty } : null;
@@ -70,7 +79,28 @@ export const usePos = (catalog = []) => {
 
   const clearCart = () => {
     setCart([]);
+    setDiscount(null);
   };
+
+  // Descuento manual (RESPONSABLE: Leo — pendiente del plan original de POS)
+  const applyDiscount = (type, value) => {
+    const numValue = parseFloat(value);
+    if (Number.isNaN(numValue) || numValue <= 0) {
+      toast.error('Ingresa un valor de descuento válido.');
+      return false;
+    }
+    if (type === 'PERCENT' && numValue > 100) {
+      toast.error('El descuento no puede superar el 100%.');
+      return false;
+    }
+    setDiscount({ type, value: numValue });
+    toast.success(
+      type === 'PERCENT' ? `Descuento de ${numValue}% aplicado.` : `Descuento de ${formatCurrency(numValue)} aplicado.`
+    );
+    return true;
+  };
+
+  const clearDiscount = () => setDiscount(null);
 
   // RF08: Lectura de código de barras vía escáner USB en modo HID (keyboard wedge)
   useEffect(() => {
@@ -91,6 +121,7 @@ export const usePos = (catalog = []) => {
         addToCart(found);
       } else {
         toast.error(`Ningún producto coincide con el código "${scannedCode}".`);
+        playSound('notification/error', { volume: 0.4 });
       }
     };
 
@@ -106,6 +137,15 @@ export const usePos = (catalog = []) => {
 
   const subtotal = cart.reduce((acc, item) => acc + item.price * item.quantity, 0);
 
+  const discountAmount = !discount
+    ? 0
+    : Math.min(
+        subtotal,
+        discount.type === 'PERCENT' ? subtotal * (discount.value / 100) : discount.value
+      );
+
+  const total = subtotal - discountAmount;
+
   return {
     cart,
     addToCart,
@@ -113,6 +153,11 @@ export const usePos = (catalog = []) => {
     removeFromCart,
     clearCart,
     subtotal,
+    discount,
+    discountAmount,
+    total,
+    applyDiscount,
+    clearDiscount,
     search,
     setSearch,
     selectedCategory,
