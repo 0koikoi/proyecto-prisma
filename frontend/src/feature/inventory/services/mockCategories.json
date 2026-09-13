@@ -1,0 +1,5 @@
+[
+  { "id": 1, "name": "Femenina", "description": "Ropa juvenil femenina de temporada" },
+  { "id": 2, "name": "Urbana", "description": "Moda urbana y streetwear unisex" },
+  { "id": 3, "name": "Mascotas", "description": "Prendas y accesorios para mascotas" }
+]

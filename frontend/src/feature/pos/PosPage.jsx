@@ -21,33 +21,60 @@
  *
  * TODO Leo: Reemplazar el mock de inventoryService por GET /api/products.
  * TODO Leo: Reemplazar el mock de posService.processSale() por POST /api/sales.
- * TODO Leo: Validar que el botón "Cobrar" esté deshabilitado si no hay caja abierta.
  */
 import { useState } from 'react';
-import { Search, ScanLine, Command as CommandIcon } from 'lucide-react';
+import { Search, ScanLine, Command as CommandIcon, Volume2, VolumeX, AlertTriangle } from 'lucide-react';
 import { Toaster, toast } from 'sonner';
 import { useHotkeys } from 'react-hotkeys-hook';
+import { playSound, isSoundEnabled, setSoundEnabled } from 'react-sounds';
+import confetti from 'canvas-confetti';
 import { usePos } from './hooks/usePos';
 import { useInventory } from '../inventory/hooks/useInventory';
+import { useCashRegister } from '../cash-register/hooks/useCashRegister';
 import { ProductGrid } from './components/ProductGrid';
+import { ProductGridSkeleton } from './components/ProductGridSkeleton';
 import { CartTicket } from './components/CartTicket';
 import { PaymentModal } from './components/PaymentModal';
+import { TicketReceiptModal } from './components/TicketReceiptModal';
 import { QuickSearchPalette } from './components/QuickSearchPalette';
+import { MobileSidebarDrawer } from './components/MobileSidebarDrawer';
 import { posService } from './services/posService';
 import { Input } from '../../shared/components/Input';
 
 const SEARCH_INPUT_ID = 'pos-search-input';
 
 export const PosPage = () => {
-  const { allProducts } = useInventory();
+  const { allProducts, loading: productsLoading } = useInventory();
   const {
     cart, addToCart, updateQuantity, removeFromCart, clearCart,
-    subtotal, search, setSearch, selectedCategory, setSelectedCategory,
+    subtotal, discount, discountAmount, total, applyDiscount, clearDiscount,
+    search, setSearch, selectedCategory, setSelectedCategory,
     scannerReady,
   } = usePos(allProducts);
+  const { cashStatus, registerSale } = useCashRegister();
+  // Mientras se resuelve el estado de caja (cashStatus === null) no bloqueamos
+  // todavía, para no mostrar un aviso falso en el instante de carga.
+  const isCashOpen = cashStatus === null || cashStatus.isOpen !== false;
 
   const [isPaymentOpen, setIsPaymentOpen] = useState(false);
   const [isQuickSearchOpen, setIsQuickSearchOpen] = useState(false);
+  const [receipt, setReceipt] = useState(null);
+  const [soundOn, setSoundOn] = useState(() => isSoundEnabled());
+
+  const toggleSound = () => {
+    const next = !soundOn;
+    setSoundEnabled(next);
+    setSoundOn(next);
+  };
+
+  const requestCheckout = () => {
+    if (!isCashOpen) {
+      toast.error('Debes abrir el turno de caja antes de registrar ventas.');
+      playSound('notification/error', { volume: 0.4 });
+      return;
+    }
+    setIsPaymentOpen(true);
+  };
 
   // Atajos de teclado de mostrador (RNF02: la interacción debe sentirse inmediata)
   useHotkeys('mod+k', (e) => { e.preventDefault(); setIsQuickSearchOpen(true); });
@@ -57,8 +84,8 @@ export const PosPage = () => {
   });
   useHotkeys('f4', (e) => {
     e.preventDefault();
-    if (cart.length > 0) setIsPaymentOpen(true);
-  }, [cart.length]);
+    if (cart.length > 0) requestCheckout();
+  }, [cart.length, isCashOpen]);
   useHotkeys('esc', () => setIsPaymentOpen(false), { enabled: isPaymentOpen });
 
   const categories = ['ALL', 'Femenina', 'Urbana', 'Mascotas'];
@@ -78,23 +105,65 @@ export const PosPage = () => {
     const payload = {
       items: cart.map((i) => ({ productId: i.id, quantity: i.quantity, price: i.price })),
       subtotal,
+      discount,
+      discountAmount,
+      total,
       ...paymentData,
     };
     const res = await posService.processSale(payload);
     toast.success(`¡Venta registrada! Ticket #${res.ticketNumber}`);
+    playSound('notification/success', { volume: 0.5 });
+    // Confetti monocromático (blanco/negro/grises) para no romper el diseño minimalista
+    confetti({
+      particleCount: 70,
+      spread: 65,
+      startVelocity: 35,
+      gravity: 1.1,
+      origin: { y: 0.7 },
+      colors: ['#0a0a0a', '#404040', '#737373', '#d4d4d4', '#ffffff'],
+      disableForReducedMotion: true,
+    });
+    // Refleja la venta en los totales de Caja por método de pago (antes nunca se sincronizaba)
+    registerSale({ paymentMethod: paymentData.paymentMethod, amount: total });
+    // Se captura una copia del carrito antes de vaciarlo para el comprobante imprimible
+    setReceipt({
+      ticketNumber: res.ticketNumber,
+      createdAt: res.createdAt,
+      items: cart,
+      subtotal,
+      discount,
+      discountAmount,
+      total,
+      paymentMethod: paymentData.paymentMethod,
+      cashGiven: paymentData.cashGiven,
+      vuelto: paymentData.vuelto,
+    });
     clearCart();
   };
 
   return (
-    <div className="flex gap-5" style={{ height: 'calc(100vh - 130px)' }}>
+    <div className="flex flex-col gap-3 lg:gap-5">
+      {/* Botón de menú móvil: hijo directo del contenedor de página completa
+          para que el `sticky` tenga recorrido en todo el alto de la vista */}
+      <MobileSidebarDrawer />
+
+      <div className="flex flex-col lg:flex-row gap-5 lg:h-[calc(100vh-130px)]">
       <Toaster position="top-center" theme="light" richColors />
 
       {/* Panel izquierdo: catálogo visual */}
-      <div className="flex flex-col gap-4 flex-1 bg-white border border-gray-200 rounded-xl p-5 overflow-hidden">
+      <div className="flex flex-col gap-4 flex-1 bg-white border border-gray-200 rounded-xl p-4 sm:p-5 lg:overflow-hidden">
+        {/* Aviso: no se puede cobrar sin un turno de caja abierto */}
+        {!isCashOpen && (
+          <div className="flex items-center gap-2.5 px-4 py-2.5 rounded-xl border border-amber-200 bg-amber-50 text-amber-800 text-sm font-medium">
+            <AlertTriangle size={16} className="shrink-0" />
+            <span>Caja cerrada — abre el turno para poder registrar ventas.</span>
+          </div>
+        )}
+
         {/* Búsqueda, estado del escáner y tabs de categoría */}
         <div className="flex flex-col gap-3">
-          <div className="flex items-center gap-3">
-            <div className="flex-1 relative">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+            <div className="flex-1 min-w-[180px] relative">
               <Input
                 name={SEARCH_INPUT_ID}
                 placeholder="Buscar producto por nombre o SKU..."
@@ -125,8 +194,17 @@ export const PosPage = () => {
             >
               <ScanLine size={14} />
               <span className={scannerReady ? 'inline w-1.5 h-1.5 rounded-full bg-emerald-500' : 'hidden'} />
-              {scannerReady ? 'Escáner listo' : 'Sin escáner'}
+              <span className="hidden sm:inline">{scannerReady ? 'Escáner listo' : 'Sin escáner'}</span>
             </div>
+            {/* Silenciar sonidos de feedback (útil con clientes en mostrador) */}
+            <button
+              type="button"
+              onClick={toggleSound}
+              className="flex items-center justify-center w-10 h-10 rounded-lg border border-gray-200 bg-gray-50 text-gray-500 hover:border-gray-400 hover:text-gray-700 transition-colors cursor-pointer shrink-0"
+              title={soundOn ? 'Silenciar sonidos' : 'Activar sonidos'}
+            >
+              {soundOn ? <Volume2 size={16} /> : <VolumeX size={16} />}
+            </button>
           </div>
           <div className="flex gap-2 overflow-x-auto pb-1">
             {categories.map((cat) => (
@@ -147,7 +225,11 @@ export const PosPage = () => {
 
         {/* Cuadrícula de productos */}
         <div className="flex-1 overflow-y-auto">
-          <ProductGrid products={filteredProducts} onSelectProduct={addToCart} />
+          {productsLoading ? (
+            <ProductGridSkeleton />
+          ) : (
+            <ProductGrid products={filteredProducts} onSelectProduct={addToCart} />
+          )}
         </div>
       </div>
 
@@ -155,16 +237,23 @@ export const PosPage = () => {
       <CartTicket
         cart={cart}
         subtotal={subtotal}
+        discount={discount}
+        discountAmount={discountAmount}
+        total={total}
+        onApplyDiscount={applyDiscount}
+        onClearDiscount={clearDiscount}
         onUpdateQty={updateQuantity}
         onRemove={removeFromCart}
         onClear={clearCart}
-        onCheckout={() => setIsPaymentOpen(true)}
+        onCheckout={requestCheckout}
+        cashRegisterOpen={isCashOpen}
       />
+      </div>
 
       <PaymentModal
         isOpen={isPaymentOpen}
         onClose={() => setIsPaymentOpen(false)}
-        total={subtotal}
+        total={total}
         onConfirmSale={handleSaleSuccess}
       />
 
@@ -173,6 +262,12 @@ export const PosPage = () => {
         onOpenChange={setIsQuickSearchOpen}
         products={allProducts}
         onSelect={addToCart}
+      />
+
+      <TicketReceiptModal
+        isOpen={!!receipt}
+        onClose={() => setReceipt(null)}
+        receipt={receipt}
       />
     </div>
   );

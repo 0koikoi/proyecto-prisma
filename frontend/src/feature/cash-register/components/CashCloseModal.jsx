@@ -6,66 +6,213 @@
  * Compara el efectivo esperado en el sistema con el efectivo contado físicamente
  * para detectar descuadres (faltantes o sobrantes) — RF14.
  *
+ * VALIDACIÓN (react-hook-form + zod):
+ *  - El efectivo contado debe ser un número >= 0.
+ *  - Si el FALTANTE supera el margen de tolerancia (SIGNIFICANT_THRESHOLD), las
+ *    observaciones pasan a ser obligatorias — antes cualquier descuadre, grande
+ *    o mínimo, se veía y trataba exactamente igual.
+ *  - `watch()` mantiene el cálculo reactivo del descuadre mientras se escribe.
+ *
+ * CALCULADORA DE BILLETES Y MONEDAS: panel opcional para desglosar el conteo
+ * físico por denominación (soles) y volcar el total directo al campo de
+ * efectivo contado, en vez de sumar todo de cabeza en el mostrador.
+ *
  * TODO Leo:
  *  - Conectar con cashService.closeRegister(data).
  *  - Enviar registro a la tabla cash_registers de PostgreSQL.
- *  - Mostrar alerta si hay faltante superior al margen de tolerancia.
  */
 import { useState } from 'react';
+import { useForm, Controller } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import { motion, AnimatePresence } from 'motion/react';
 import { Modal } from '../../../shared/components/Modal';
 import { Input } from '../../../shared/components/Input';
 import { Button } from '../../../shared/components/Button';
 import { formatCurrency } from '../../../shared/utils/formatters';
-import { AlertCircle, CheckCircle2, DollarSign } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Calculator, ChevronDown } from 'lucide-react';
+
+const SIGNIFICANT_THRESHOLD = 5; // S/ — faltante por encima de esto exige justificación
+const BILLS = [200, 100, 50, 20, 10];
+const COINS = [5, 2, 1, 0.5, 0.2, 0.1];
 
 export const CashCloseModal = ({ isOpen, onClose, onConfirm, expectedTotal }) => {
-  const [countedCash, setCountedCash] = useState('');
-  const [notes, setNotes] = useState('');
-
-  const difference = (parseFloat(countedCash) || 0) - (expectedTotal || 0);
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    onConfirm({
-      countedCash: parseFloat(countedCash) || 0,
-      difference,
-      notes,
+  const schema = z
+    .object({
+      countedCash: z.coerce
+        .number()
+        .refine((v) => !Number.isNaN(v) && v >= 0, { message: 'Ingresa el efectivo contado (0 o más)' }),
+      notes: z.string().optional(),
+    })
+    .superRefine((data, ctx) => {
+      const diff = data.countedCash - (expectedTotal || 0);
+      if (diff < 0 && Math.abs(diff) > SIGNIFICANT_THRESHOLD && !data.notes?.trim()) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['notes'],
+          message: `Debes justificar un faltante mayor a ${formatCurrency(SIGNIFICANT_THRESHOLD)}.`,
+        });
+      }
     });
+
+  const { control, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm({
+    resolver: zodResolver(schema),
+    defaultValues: { countedCash: '', notes: '' },
+  });
+
+  const [showCalculator, setShowCalculator] = useState(false);
+  const [denomCounts, setDenomCounts] = useState({});
+
+  const countedCashRaw = watch('countedCash');
+  const hasCountedValue = countedCashRaw !== '' && countedCashRaw !== undefined;
+  const countedCashNum = parseFloat(countedCashRaw);
+  const difference = (Number.isNaN(countedCashNum) ? 0 : countedCashNum) - (expectedTotal || 0);
+  const isSignificantShortage = difference < 0 && Math.abs(difference) > SIGNIFICANT_THRESHOLD;
+
+  const denomTotal = [...BILLS, ...COINS].reduce(
+    (acc, denom) => acc + denom * (parseInt(denomCounts[denom], 10) || 0),
+    0
+  );
+
+  const handleDenomChange = (denom, value) => {
+    setDenomCounts((prev) => ({ ...prev, [denom]: value }));
+  };
+
+  const useCalculatorTotal = () => {
+    setValue('countedCash', denomTotal.toFixed(2), { shouldValidate: true });
+  };
+
+  const submit = (data) => {
+    onConfirm({
+      countedCash: data.countedCash,
+      difference,
+      notes: data.notes || '',
+    });
+    reset({ countedCash: '', notes: '' });
+    setDenomCounts({});
+    setShowCalculator(false);
     onClose();
   };
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Cierre de Caja y Arqueo Físico" maxWidth="max-w-md">
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit(submit)} className="space-y-4">
         {/* Banner de efectivo esperado */}
-        <div className="bg-gray-950 text-white rounded-xl p-4 flex items-center justify-between">
-          <div>
+        <div className="bg-gray-950 text-white rounded-xl p-4 flex items-center justify-between gap-3">
+          <div className="min-w-0">
             <span className="text-xs uppercase text-gray-400 font-semibold block">
               Efectivo Esperado en Gaveta
             </span>
-            <span className="text-xs text-gray-500">(Sencillo inicial + Ventas efectivo)</span>
+            <span className="text-xs text-gray-500 block">Sencillo inicial + ventas efectivo</span>
           </div>
-          <strong className="text-2xl font-black text-white">
+          <strong className="text-2xl font-black text-white shrink-0">
             {formatCurrency(expectedTotal)}
           </strong>
         </div>
 
-        <Input
-          label="Efectivo Físico Contado en Gaveta (S/)"
-          type="number"
-          step="0.10"
-          placeholder="0.00"
-          value={countedCash}
-          onChange={(e) => setCountedCash(e.target.value)}
-          required
+        <Controller
+          name="countedCash"
+          control={control}
+          render={({ field }) => (
+            <Input
+              label="Efectivo Físico Contado en Gaveta (S/)"
+              type="number"
+              step="0.10"
+              placeholder="0.00"
+              value={field.value}
+              onChange={field.onChange}
+              error={errors.countedCash?.message}
+              required
+            />
+          )}
         />
+
+        {/* Calculadora de billetes y monedas */}
+        <div className="border border-gray-200 rounded-xl overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setShowCalculator((v) => !v)}
+            className="w-full flex items-center justify-between px-3.5 py-2.5 bg-gray-50 text-sm font-semibold text-gray-700 cursor-pointer border-none"
+          >
+            <span className="flex items-center gap-2">
+              <Calculator size={15} />
+              Calculadora de billetes y monedas
+            </span>
+            <ChevronDown size={16} className={`transition-transform ${showCalculator ? 'rotate-180' : ''}`} />
+          </button>
+
+          <AnimatePresence initial={false}>
+            {showCalculator && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="overflow-hidden"
+              >
+                <div className="p-3.5 space-y-3">
+                  <div>
+                    <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400 mb-1.5">Billetes</p>
+                    <div className="grid grid-cols-3 gap-2">
+                      {BILLS.map((denom) => (
+                        <div key={denom} className="flex items-center gap-1.5">
+                          <span className="text-xs font-mono text-gray-600 w-11 shrink-0">S/{denom}</span>
+                          <input
+                            type="number"
+                            min="0"
+                            value={denomCounts[denom] || ''}
+                            onChange={(e) => handleDenomChange(denom, e.target.value)}
+                            placeholder="0"
+                            className="w-full h-8 px-2 border border-gray-300 rounded-md text-sm outline-none focus:ring-2 focus:ring-gray-900 focus:border-gray-900"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400 mb-1.5">Monedas</p>
+                    <div className="grid grid-cols-3 gap-2">
+                      {COINS.map((denom) => (
+                        <div key={denom} className="flex items-center gap-1.5">
+                          <span className="text-xs font-mono text-gray-600 w-11 shrink-0">S/{denom}</span>
+                          <input
+                            type="number"
+                            min="0"
+                            value={denomCounts[denom] || ''}
+                            onChange={(e) => handleDenomChange(denom, e.target.value)}
+                            placeholder="0"
+                            className="w-full h-8 px-2 border border-gray-300 rounded-md text-sm outline-none focus:ring-2 focus:ring-gray-900 focus:border-gray-900"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between bg-gray-50 rounded-lg p-2.5">
+                    <span className="text-sm font-semibold text-gray-700">
+                      Total contado: <span className="font-mono">{formatCurrency(denomTotal)}</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={useCalculatorTotal}
+                      disabled={denomTotal === 0}
+                      className="h-8 px-3 rounded-md bg-gray-900 text-white text-xs font-bold cursor-pointer border-none disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      Usar este monto
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
 
         {/* Indicador de Descuadre */}
         <AnimatePresence initial={false}>
-          {countedCash !== '' && (
+          {hasCountedValue && (
             <motion.div
-              key={difference === 0 ? 'ok' : difference < 0 ? 'short' : 'over'}
+              key={difference === 0 ? 'ok' : isSignificantShortage ? 'short-big' : difference < 0 ? 'short' : 'over'}
               initial={{ opacity: 0, y: -6, scale: 0.98 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -6 }}
@@ -73,6 +220,8 @@ export const CashCloseModal = ({ isOpen, onClose, onConfirm, expectedTotal }) =>
               className={`p-3.5 rounded-xl border flex items-center justify-between text-sm ${
                 difference === 0
                   ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                  : isSignificantShortage
+                  ? 'bg-red-600 border-red-700 text-white'
                   : difference < 0
                   ? 'bg-red-50 border-red-200 text-red-900'
                   : 'bg-amber-50 border-amber-200 text-amber-900'
@@ -82,17 +231,19 @@ export const CashCloseModal = ({ isOpen, onClose, onConfirm, expectedTotal }) =>
                 {difference === 0 ? (
                   <CheckCircle2 size={18} className="text-emerald-600" />
                 ) : (
-                  <AlertCircle size={18} className={difference < 0 ? 'text-red-600' : 'text-amber-600'} />
+                  <AlertCircle size={18} className={isSignificantShortage ? 'text-white' : difference < 0 ? 'text-red-600' : 'text-amber-600'} />
                 )}
                 <span>
                   {difference === 0
                     ? 'Cuadre Perfecto'
+                    : isSignificantShortage
+                    ? 'Faltante Importante — requiere justificación'
                     : difference < 0
                     ? 'Faltante de Caja'
                     : 'Sobrante de Caja'}
                 </span>
               </div>
-              <span className="font-mono font-bold text-base">
+              <span className="font-bold text-base shrink-0">
                 {formatCurrency(Math.abs(difference))}
               </span>
             </motion.div>
@@ -100,19 +251,28 @@ export const CashCloseModal = ({ isOpen, onClose, onConfirm, expectedTotal }) =>
         </AnimatePresence>
 
         {/* Observaciones */}
-        <div className="flex flex-col gap-1.5">
-          <label className="text-sm font-semibold text-gray-700" htmlFor="notes">
-            Observaciones / Justificación de Descuadre:
-          </label>
-          <textarea
-            id="notes"
-            rows="2"
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            placeholder="Opcional: detalles sobre gastos imprevistos, sencillo, etc."
-            className="w-full p-2.5 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 outline-none focus:ring-2 focus:ring-gray-900 focus:border-gray-900 resize-none transition-shadow"
-          />
-        </div>
+        <Controller
+          name="notes"
+          control={control}
+          render={({ field }) => (
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-semibold text-gray-700" htmlFor="notes">
+                Observaciones / Justificación de Descuadre{isSignificantShortage && <span className="text-red-500 ml-0.5">*</span>}:
+              </label>
+              <textarea
+                id="notes"
+                rows="2"
+                value={field.value}
+                onChange={field.onChange}
+                placeholder="Opcional: detalles sobre gastos imprevistos, sencillo, etc."
+                className={`w-full p-2.5 bg-white border rounded-lg text-sm text-gray-900 outline-none focus:ring-2 resize-none transition-shadow ${
+                  errors.notes ? 'border-red-400 focus:ring-red-400 focus:border-red-400' : 'border-gray-300 focus:ring-gray-900 focus:border-gray-900'
+                }`}
+              />
+              {errors.notes && <span className="text-xs text-red-500">{errors.notes.message}</span>}
+            </div>
+          )}
+        />
 
         {/* Acciones */}
         <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-100">
