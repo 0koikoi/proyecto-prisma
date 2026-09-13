@@ -1,0 +1,102 @@
+/* INVENTARIO — Tailwind CSS Segunda Versión. */
+@reference "../../../index.css";
+
+:root {
+  /* Página */
+  --inv-color-primary: #1C1C1C;
+  --inv-color-secondary: #D6EFFF;
+  --inv-color-bg: #F5F5F5;
+  --inv-text-primary: var(--inv-color-primary);
+  --inv-text-white: #FFFFFF;
+
+  /* Estados de stock */
+  --inv-color-amber: #e68170;
+  --inv-color-amber-soft: #f8fcab;
+  --inv-color-emerald-soft: #c5ffe4;
+  --inv-stock-available: var(--inv-color-emerald-soft);
+  --inv-stock-low: var(--inv-color-amber-soft);
+  --inv-stock-empty: var(--inv-color-amber);
+
+  /* Derivados del principal*/
+  --inv-border: color-mix(in srgb, var(--inv-color-primary) 20%, transparent);
+  --inv-focus: color-mix(in srgb, var(--inv-color-primary) 15%, transparent);
+}
+
+@layer components {
+
+  .inventory-page {
+    background-color: var(--inv-color-bg);
+    color: var(--inv-text-primary);
+  }
+
+  .inv-panel {
+    @apply rounded-xl border shadow-sm;
+    border-color: var(--inv-border);
+    background-color: var(--inv-color-secondary);
+    color: var(--inv-text-primary);
+  }
+
+  /* Formularios*/
+  .inv-control {
+    @apply w-full min-w-0 rounded-xl border px-3 py-2 text-sm outline-none disabled:opacity-50;
+    background-color: var(--inv-color-bg);
+    border-color: var(--inv-border);
+    color: var(--inv-text-primary);
+  }
+
+  .inv-control:focus {
+    border-color: var(--inv-color-primary);
+    box-shadow: 0 0 0 2px var(--inv-focus);
+  }
+
+  .inv-control::placeholder { color: var(--inv-text-primary); }
+
+  .inv-dialog,
+  .inv-dialog-header {
+    background-color: var(--inv-color-bg);
+    color: var(--inv-text-primary);
+  }
+
+  /* BOTONES */
+  .inv-button {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold transition-colors;
+    @apply disabled:cursor-not-allowed disabled:opacity-50;
+    border-color: var(--inv-border);
+  }
+
+  .inv-button:focus-visible {
+    outline: 2px solid var(--inv-color-primary);
+    outline-offset: 2px;
+  }
+
+  .inv-button--primary {
+    background-color: var(--inv-color-primary);
+    color: var(--inv-text-white);
+  }
+
+  .inv-button--secondary {
+    background-color: var(--inv-color-bg);
+    color: var(--inv-text-primary);
+  }
+
+  .inv-button--primary:hover { 
+    background-color: color-mix(in srgb, var(--inv-color-primary) 90%, var(--inv-color-bg)); 
+  }
+  .inv-button--secondary:hover { 
+    background-color: color-mix(in srgb, var(--inv-color-primary) 10%, var(--inv-color-bg)); 
+  }
+
+  /* ESTADOS */
+  .inv-stock-badge {
+    @apply inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold whitespace-nowrap;
+    color: var(--inv-text-primary);
+    border-color: var(--inv-border);
+  }
+
+  .inv-stock-badge--available { background-color: var(--inv-stock-available); }
+  .inv-stock-badge--low { background-color: var(--inv-stock-low); }
+  .inv-stock-badge--empty { background-color: var(--inv-stock-empty); }
+
+  .inv-stock-row--low { border-left: 3px solid var(--inv-stock-empty); }
+  .inv-stock-row--empty { border-left: 3px solid var(--inv-stock-empty); }
+}

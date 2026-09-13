@@ -1,92 +1,37 @@
-/**
- * RESPONSABLE: Mauricio
- * MÓDULO: Inventario — Tabla de Productos
- *
- * Tabla con todos los productos del inventario.
- *
- * TODO Mauricio: Agregar columna "Código de Barras" cuando el campo esté en la entidad (RF06).
- * TODO Mauricio: Agregar columna "Costo (S/)" para mostrar el costPrice.
- * TODO Mauricio: Agregar columna "Proveedor" (nombre del supplier).
- * TODO Mauricio: Implementar paginación si hay muchos productos.
- */
-import { Edit, Trash2, AlertTriangle } from 'lucide-react';
+import { Edit, Trash2 } from 'lucide-react';
 import { formatCurrency } from '../../../shared/utils/formatters';
+import { isLowStock } from '../utils/inventory';
+import { ProductImage } from './InventoryUI';
 
-export const ProductTable = ({ products, onEdit, onDelete }) => {
-  return (
-    <div className="overflow-x-auto">
-      <table className="custom-table">
-        <thead>
-          <tr>
-            <th>SKU</th>
-            <th>Producto</th>
-            <th>Categoría</th>
-            {/* TODO Mauricio: agregar <th>Costo</th> y <th>Proveedor</th> */}
-            <th>Precio Venta</th>
-            <th>Stock</th>
-            <th>Estado</th>
-            <th className="text-right pr-6">Acciones</th>
-          </tr>
-        </thead>
-        <tbody>
-          {products.length === 0 ? (
-            <tr>
-              <td colSpan="7" className="text-center py-12 text-gray-400 text-sm">
-                No hay productos que coincidan con la búsqueda.
-              </td>
-            </tr>
-          ) : (
-            products.map((p) => {
-              const isOutOfStock = p.stock === 0;
-              const isLowStock  = p.stock > 0 && p.stock <= 3;
-              return (
-                <tr key={p.id} className="hover:bg-gray-50 transition-colors">
-                  <td>
-                    <code className="text-xs bg-gray-100 px-1.5 py-0.5 rounded font-mono">{p.sku}</code>
-                    {p.barcode && (
-                      <span className="text-[11px] text-gray-400 block font-mono mt-0.5">
-                        EAN: {p.barcode}
-                      </span>
-                    )}
-                  </td>
-                  <td className="font-medium">{p.name}</td>
-                  <td><span className="badge badge-neutral">{p.category}</span></td>
-                  {/* TODO Mauricio: <td>{formatCurrency(p.costPrice)}</td> */}
-                  <td className="font-semibold">{formatCurrency(p.price)}</td>
-                  <td className={`font-bold ${isOutOfStock ? 'text-red-500' : isLowStock ? 'text-amber-500' : 'text-gray-900'}`}>
-                    {p.stock} un.
-                  </td>
-                  <td>
-                    {isOutOfStock ? (
-                      <span className="badge badge-danger">Agotado</span>
-                    ) : isLowStock ? (
-                      <span className="badge badge-warning flex items-center gap-1">
-                        <AlertTriangle size={12} /> Bajo stock
-                      </span>
-                    ) : (
-                      <span className="badge badge-success">Disponible</span>
-                    )}
-                  </td>
-                  <td className="text-right pr-6">
-                    <button
-                      className="p-1.5 rounded hover:bg-gray-100 text-gray-500 hover:text-gray-900 transition-colors"
-                      onClick={() => onEdit(p)} title="Editar" type="button"
-                    >
-                      <Edit size={15} />
-                    </button>
-                    <button
-                      className="p-1.5 rounded hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors ml-1"
-                      onClick={() => onDelete(p.id)} title="Dar de baja" type="button"
-                    >
-                      <Trash2 size={15} />
-                    </button>
-                  </td>
-                </tr>
-              );
-            })
-          )}
-        </tbody>
-      </table>
-    </div>
-  );
-};
+export const ProductTable = ({ products, onEdit, onDelete, disabled = false }) => (
+  <div className="overflow-x-auto">
+    <table className="w-full min-w-[950px] border-collapse text-left text-sm [&_th]:px-4 [&_th]:py-3 [&_td]:px-4 [&_td]:py-3">
+      <thead className="border-b border-[var(--inv-color-primary)]/20 bg-white/35 text-[11px] tracking-wide uppercase">
+        <tr><th>SKU / Código</th><th>Producto</th><th>Categoría</th><th className="text-right">Costo</th><th className="text-right">Precio venta</th><th className="text-right">Stock</th><th>Estado</th><th className="text-right">Acciones</th></tr>
+      </thead>
+      <tbody className="divide-y divide-[var(--inv-color-primary)]/10">
+        {!products.length ? <tr><td colSpan={8} className="h-28 text-center">No hay productos que coincidan con los filtros.</td></tr> : products.map((product) => {
+          const low = isLowStock(product);
+          const empty = Number(product.stock) === 0;
+          return <tr key={product.id} className={`transition-colors hover:bg-white/40 ${empty ? 'inv-stock-row--empty' : low ? 'inv-stock-row--low' : ''}`}>
+            <td><code className="rounded border border-[var(--inv-color-primary)]/20 bg-white/40 px-1.5 py-0.5 text-xs">{product.sku}</code><span className="mt-1 block font-mono text-[11px]">{product.barcode}</span></td>
+            <td><div className="flex items-center gap-3"><ProductImage src={product.imageUrl} name={product.name} /><div><p className="font-semibold">{product.name}</p><p className="max-w-64 truncate text-xs opacity-75">{product.description}</p></div></div></td>
+            <td>{product.category}</td>
+            <td className="text-right whitespace-nowrap tabular-nums">{formatCurrency(product.costPrice)}</td>
+            <td className="text-right font-semibold whitespace-nowrap tabular-nums">{formatCurrency(product.price)}</td>
+            <td className="text-right font-bold whitespace-nowrap tabular-nums">{product.stock} un.</td>
+            <td>
+              <span className={`inv-stock-badge ${empty ? 'inv-stock-badge--empty' : low ? 'inv-stock-badge--low' : 'inv-stock-badge--available'}`}>
+                {empty ? 'Sin stock' : low ? 'Bajo stock' : 'Disponible'}
+              </span>
+            </td>
+            <td><div className="flex justify-end gap-1">
+              <button disabled={disabled} className="rounded p-2 hover:bg-[var(--inv-color-primary)]/10 disabled:opacity-40" onClick={() => onEdit(product)} aria-label={`Editar ${product.name}`} title="Editar" type="button"><Edit size={15} /></button>
+              <button disabled={disabled} className="rounded p-2 hover:bg-[var(--inv-color-primary)] hover:text-white disabled:opacity-40" onClick={() => onDelete(product.id)} aria-label={`Dar de baja ${product.name}`} title="Dar de baja" type="button"><Trash2 size={15} /></button>
+            </div></td>
+          </tr>;
+        })}
+      </tbody>
+    </table>
+  </div>
+);
