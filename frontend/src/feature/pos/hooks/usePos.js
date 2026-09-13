@@ -6,23 +6,28 @@
  * validación de stock disponible y la búsqueda visual/por texto de productos.
  *
  * SOPORTE LECTOR CÓDIGO DE BARRAS (RF08):
- *  - Los escáneres USB funcionan en modo HID (Keyboard Wedge), emitiendo caracteres
- *    a gran velocidad seguidos de 'Enter'.
- *  - Este hook incluye el detector para agregar automáticamente el producto al ticket.
+ *  - Se usa @point-of-sale/keyboard-barcode-scanner en vez de un detector casero:
+ *    separa de forma confiable el tecleo de un lector USB HID (keyboard wedge) del
+ *    tecleo manual de un usuario, sin importar la marca/velocidad del lector.
  *
  * TODO Leo:
- *  - Probar con el lector físico USB en el mostrador para ajustar el umbral de detección (50ms).
+ *  - Probar con el lector físico USB en el mostrador (ver estado `scannerReady`).
  */
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { toast } from 'sonner';
+import KeyboardBarcodeScanner from '@point-of-sale/keyboard-barcode-scanner';
 
 export const usePos = (catalog = []) => {
   const [cart, setCart] = useState([]);
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('ALL');
+  const [scannerReady, setScannerReady] = useState(false);
+  const catalogRef = useRef(catalog);
+  catalogRef.current = catalog;
 
   const addToCart = useCallback((product) => {
     if (product.stock <= 0) {
-      alert(`El producto "${product.name}" está agotado.`);
+      toast.error(`"${product.name}" está agotado.`);
       return;
     }
 
@@ -30,7 +35,7 @@ export const usePos = (catalog = []) => {
       const existing = prev.find((item) => item.id === product.id);
       if (existing) {
         if (existing.quantity >= product.stock) {
-          alert(`No puedes agregar más: solo hay ${product.stock} unidades en stock.`);
+          toast.error(`Stock máximo: solo hay ${product.stock} unidades de "${product.name}".`);
           return prev;
         }
         return prev.map((item) =>
@@ -48,7 +53,7 @@ export const usePos = (catalog = []) => {
           if (item.id === productId) {
             const newQty = item.quantity + delta;
             if (newQty > item.stock) {
-              alert(`Stock máximo alcanzado (${item.stock} unidades)`);
+              toast.error(`Stock máximo alcanzado (${item.stock} unidades).`);
               return item;
             }
             return newQty > 0 ? { ...item, quantity: newQty } : null;
@@ -67,51 +72,37 @@ export const usePos = (catalog = []) => {
     setCart([]);
   };
 
-  // RF08: Detección de escáner de código de barras USB (tecleo rápido + Enter)
+  // RF08: Lectura de código de barras vía escáner USB en modo HID (keyboard wedge)
   useEffect(() => {
-    let barcodeBuffer = '';
-    let lastKeyTime = Date.now();
+    const scanner = new KeyboardBarcodeScanner();
 
-    const handleKeyDown = (e) => {
-      // Ignorar si el usuario está escribiendo intencionalmente en un input o textarea
-      if (['INPUT', 'TEXTAREA'].includes(e.target.tagName)) {
-        return;
-      }
+    const handleConnected = () => setScannerReady(true);
+    const handleDisconnected = () => setScannerReady(false);
 
-      const currentTime = Date.now();
-      const timeDiff = currentTime - lastKeyTime;
-      lastKeyTime = currentTime;
+    const handleBarcode = (e) => {
+      const scannedCode = e.value?.trim();
+      if (!scannedCode) return;
 
-      // Si el intervalo entre teclas es mayor a 80ms, no es un escáner: reiniciar buffer
-      if (timeDiff > 80) {
-        barcodeBuffer = '';
-      }
+      const found = catalogRef.current.find(
+        (p) => p.barcode === scannedCode || p.sku.toLowerCase() === scannedCode.toLowerCase()
+      );
 
-      if (e.key === 'Enter') {
-        if (barcodeBuffer.length >= 4) {
-          const scannedCode = barcodeBuffer.trim();
-          console.log('[Scanner USB detectado]:', scannedCode);
-
-          // Buscar el producto en el catálogo en memoria
-          const found = catalog.find(
-            (p) => p.barcode === scannedCode || p.sku.toLowerCase() === scannedCode.toLowerCase()
-          );
-
-          if (found) {
-            addToCart(found);
-          } else {
-            console.warn('Producto no encontrado con el código escaneado:', scannedCode);
-          }
-        }
-        barcodeBuffer = '';
-      } else if (e.key.length === 1) {
-        barcodeBuffer += e.key;
+      if (found) {
+        addToCart(found);
+      } else {
+        toast.error(`Ningún producto coincide con el código "${scannedCode}".`);
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [catalog, addToCart]);
+    scanner.addEventListener('connected', handleConnected);
+    scanner.addEventListener('disconnected', handleDisconnected);
+    scanner.addEventListener('barcode', handleBarcode);
+    scanner.connect();
+
+    return () => {
+      scanner.disconnect();
+    };
+  }, [addToCart]);
 
   const subtotal = cart.reduce((acc, item) => acc + item.price * item.quantity, 0);
 
@@ -126,5 +117,6 @@ export const usePos = (catalog = []) => {
     setSearch,
     selectedCategory,
     setSelectedCategory,
+    scannerReady,
   };
 };

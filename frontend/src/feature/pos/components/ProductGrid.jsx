@@ -3,12 +3,13 @@
  * MÓDULO: Punto de Venta (POS) — Catálogo Visual de Productos
  *
  * Muestra las tarjetas de los productos para selección rápida en mostrador.
+ * Usa `motion` para dar retroalimentación táctil inmediata al tocar/clicar
+ * una tarjeta (RNF02: la interacción debe sentirse instantánea).
  *
  * TODO Leo:
- *  - Indicar visualmente si el producto tiene stock bajo (<= 3 unidades).
- *  - Bloquear el clic si el producto está totalmente agotado (RF11).
  *  - Si se añade soporte para fotos reales de producto, mostrar img con fallback al icono Package.
  */
+import { motion } from 'motion/react';
 import { formatCurrency } from '../../../shared/utils/formatters';
 import { Package, Plus, AlertTriangle } from 'lucide-react';
 
@@ -34,10 +35,14 @@ export const ProductGrid = ({ products, onSelectProduct }) => {
         const isLowStock = p.stock > 0 && p.stock <= 3;
 
         return (
-          <button
+          <motion.button
             key={p.id}
             type="button"
-            className={`group relative bg-white border rounded-xl p-4 text-left transition-all duration-150 flex flex-col justify-between cursor-pointer ${
+            layout
+            whileTap={!isOutOfStock ? { scale: 0.96 } : undefined}
+            whileHover={!isOutOfStock ? { y: -2 } : undefined}
+            transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+            className={`group relative bg-white border rounded-xl p-4 text-left flex flex-col justify-between cursor-pointer ${
               isOutOfStock
                 ? 'border-gray-200 opacity-60 cursor-not-allowed bg-gray-50'
                 : 'border-gray-200 hover:border-gray-900 hover:shadow-md'
@@ -87,7 +92,7 @@ export const ProductGrid = ({ products, onSelectProduct }) => {
                 </span>
               )}
             </div>
-          </button>
+          </motion.button>
         );
       })}
     </div>

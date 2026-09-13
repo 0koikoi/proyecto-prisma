@@ -10,10 +10,15 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@point-of-sale/keyboard-barcode-scanner": "^1.1.4",
+    "cmdk": "^1.1.1",
     "lucide-react": "^1.41.0",
+    "motion": "^13.2.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
-    "react-router-dom": "^7.18.3"
+    "react-hotkeys-hook": "^5.3.3",
+    "react-router-dom": "^7.18.3",
+    "sonner": "^2.0.8"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.3",
