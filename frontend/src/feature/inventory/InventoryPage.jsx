@@ -26,12 +26,15 @@
 import { useState } from 'react';
 import { Plus, Search } from 'lucide-react';
 import { useInventory } from './hooks/useInventory';
+import { inventoryService } from './services/inventoryService';
 import { ProductTable } from './components/ProductTable';
 import { ProductFormModal } from './components/ProductFormModal';
 import { Button } from '../../shared/components/Button';
 import { Input } from '../../shared/components/Input';
+import { useToast } from '../../core/context/ToastContext';
 
 export const InventoryPage = () => {
+  const { showToast } = useToast();
   const {
     products,
     categories,
@@ -40,6 +43,7 @@ export const InventoryPage = () => {
     setSearch,
     categoryFilter,
     setCategoryFilter,
+    reload,
   } = useInventory();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -55,16 +59,31 @@ export const InventoryPage = () => {
     setIsModalOpen(true);
   };
 
-  const handleDelete = (id) => {
-    // TODO Mauricio: llamar a inventoryService.deleteProduct(id) y recargar la lista
-    if (window.confirm('¿Dar de baja este producto? Seguirá en el historial.')) {
-      alert(`Producto ${id} dado de baja (implementar llamada a API)`);
+  const handleDelete = async (id) => {
+    try {
+      await inventoryService.deleteProduct(id);
+      await reload();
+      showToast('Producto retirado del inventario activo.', 'success');
+    } catch {
+      showToast('Error al dar de baja el producto.', 'error');
     }
   };
 
-  const handleSave = (productData) => {
-    // TODO Mauricio: llamar a inventoryService.createProduct() o updateProduct()
-    alert(`Guardado: ${productData.name} (implementar llamada a API)`);
+  const handleSave = async (productData) => {
+    try {
+      if (selectedProduct) {
+        await inventoryService.updateProduct(selectedProduct.id, productData);
+        showToast('Producto actualizado correctamente.', 'success');
+      } else {
+        await inventoryService.createProduct(productData);
+        showToast('Nuevo producto registrado con éxito.', 'success');
+      }
+      setIsModalOpen(false);
+      setSelectedProduct(null);
+      await reload();
+    } catch {
+      showToast('Error al guardar el producto.', 'error');
+    }
   };
 
   return (
