@@ -40,13 +40,20 @@ export const CashOpenModal = ({ isOpen, onClose, onConfirm }) => {
     onClose();
   };
 
+  // maxWidth de Modal.jsx es un valor CSS (style inline), no una clase de
+  // Tailwind — "max-w-md" se ignoraba y dejaba el modal casi a pantalla completa.
+  // Gris neutro en vez de celeste: el botón "Cancelar" ya usa ese celeste por
+  // el sistema de botones compartido, así que un banner celeste repetía color.
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Apertura de Caja Diaria" maxWidth="max-w-md">
-      <form onSubmit={handleSubmit(submit)} className="space-y-4">
-        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-blue-900 text-sm flex items-start gap-3">
-          <DollarSign size={20} className="text-blue-600 shrink-0 mt-0.5" />
+    <Modal isOpen={isOpen} onClose={onClose} title="Apertura de Caja Diaria" maxWidth="28rem">
+      {/* noValidate: apagamos la validación nativa del navegador (el globito
+          "Completa este campo") — zod + react-hook-form ya muestran sus
+          propios mensajes de error, tener las dos a la vez se veía mal. */}
+      <form onSubmit={handleSubmit(submit)} noValidate className="max-h-[70vh] overflow-y-auto pr-0.5 space-y-4">
+        <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 text-gray-700 text-sm flex items-start gap-3">
+          <DollarSign size={20} className="text-gray-500 shrink-0 mt-0.5" />
           <p className="leading-relaxed">
-            Ingresa el monto de <strong>sencillo inicial en efectivo</strong> con el que se inicia el turno en la gaveta.
+            Ingresa el monto de <strong className="text-gray-900">sencillo inicial en efectivo</strong> con el que se inicia el turno en la gaveta.
           </p>
         </div>
 
@@ -66,12 +73,12 @@ export const CashOpenModal = ({ isOpen, onClose, onConfirm }) => {
           )}
         />
 
-        <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-100">
-          <Button variant="secondary" onClick={onClose}>
+        <div className="grid grid-cols-2 gap-3 pt-4 border-t border-gray-100">
+          <Button variant="secondary" onClick={onClose} className="w-full">
             Cancelar
           </Button>
-          <Button type="submit" variant="primary" icon={CheckCircle}>
-            Confirmar Apertura
+          <Button type="submit" variant="primary" icon={CheckCircle} className="w-full">
+            Confirmar
           </Button>
         </div>
       </form>

@@ -5,6 +5,19 @@
  * Modal para seleccionar el medio de pago (Yape, Plin, Efectivo, Tarjeta),
  * calcular vuelto en efectivo y confirmar la venta.
  *
+ * DISEÑO DEL SELECTOR DE MÉTODO: lista vertical (mejor objetivo táctil que una
+ * grilla 2x2, más fácil de escanear con la vista en mostrador) con el ícono en
+ * un círculo de color propio de cada medio de pago (Yape/Plin con QrCode —
+ * así se paga realmente con ambos: mostrando/escaneando un QR — Efectivo con
+ * Banknote, Tarjeta con CreditCard). El fondo de la fila seleccionada usa un
+ * `layoutId` de motion: no aparece/desaparece, se *desliza* de una fila a otra
+ * cuando el cajero cambia de método, igual que un selector "pill" animado.
+ * Solo tonos pasteles de la paleta (fondos 50/100, texto 600) — sin degradados
+ * ni sombras de color, para mantener el estilo del resto del sistema.
+ *
+ * El formulario tiene `max-h-[70vh] overflow-y-auto` propio para que el modal
+ * nunca exceda el alto de la pantalla (Modal.jsx no define un límite propio).
+ *
  * VALIDACIÓN (react-hook-form + zod):
  *  - Si el método es EFECTIVO, el monto entregado por el cliente debe ser
  *    al menos el total a pagar (antes se podía confirmar la venta con un
@@ -24,13 +37,57 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Modal } from '../../../shared/components/Modal';
 import { Button } from '../../../shared/components/Button';
 import { formatCurrency } from '../../../shared/utils/formatters';
-import { Banknote, Smartphone, CreditCard, CheckCircle } from 'lucide-react';
+import { Banknote, QrCode, CreditCard, CheckCircle, CheckCircle2 } from 'lucide-react';
 
 const paymentMethods = [
-  { id: 'YAPE', name: 'Yape', icon: Smartphone, color: 'border-purple-200 hover:border-purple-400', active: 'border-purple-600 bg-purple-50 text-purple-900 ring-1 ring-purple-600' },
-  { id: 'PLIN', name: 'Plin', icon: Smartphone, color: 'border-cyan-200 hover:border-cyan-400', active: 'border-cyan-600 bg-cyan-50 text-cyan-900 ring-1 ring-cyan-600' },
-  { id: 'EFECTIVO', name: 'Efectivo', icon: Banknote, color: 'border-emerald-200 hover:border-emerald-400', active: 'border-emerald-600 bg-emerald-50 text-emerald-900 ring-1 ring-emerald-600' },
-  { id: 'TARJETA', name: 'Tarjeta', icon: CreditCard, color: 'border-blue-200 hover:border-blue-400', active: 'border-blue-600 bg-blue-50 text-blue-900 ring-1 ring-blue-600' },
+  {
+    id: 'YAPE',
+    name: 'Yape',
+    hint: 'Paga escaneando el QR',
+    icon: QrCode,
+    accent: 'bg-purple-400',
+    activeBg: 'bg-purple-50',
+    activeText: 'text-purple-900',
+    iconIdle: 'bg-purple-50 text-purple-500',
+    iconActive: 'bg-purple-100 text-purple-600',
+    check: 'text-purple-600',
+  },
+  {
+    id: 'PLIN',
+    name: 'Plin',
+    hint: 'Paga escaneando el QR',
+    icon: QrCode,
+    accent: 'bg-cyan-400',
+    activeBg: 'bg-cyan-50',
+    activeText: 'text-cyan-900',
+    iconIdle: 'bg-cyan-50 text-cyan-500',
+    iconActive: 'bg-cyan-100 text-cyan-600',
+    check: 'text-cyan-600',
+  },
+  {
+    id: 'EFECTIVO',
+    name: 'Efectivo',
+    hint: 'Pago en billetes/monedas',
+    icon: Banknote,
+    accent: 'bg-emerald-400',
+    activeBg: 'bg-emerald-50',
+    activeText: 'text-emerald-900',
+    iconIdle: 'bg-emerald-50 text-emerald-500',
+    iconActive: 'bg-emerald-100 text-emerald-600',
+    check: 'text-emerald-600',
+  },
+  {
+    id: 'TARJETA',
+    name: 'Tarjeta',
+    hint: 'Débito o crédito',
+    icon: CreditCard,
+    accent: 'bg-blue-400',
+    activeBg: 'bg-blue-50',
+    activeText: 'text-blue-900',
+    iconIdle: 'bg-blue-50 text-blue-500',
+    iconActive: 'bg-blue-100 text-blue-600',
+    check: 'text-blue-600',
+  },
 ];
 
 export const PaymentModal = ({ isOpen, onClose, total, onConfirmSale }) => {
@@ -80,40 +137,101 @@ export const PaymentModal = ({ isOpen, onClose, total, onConfirmSale }) => {
     onClose();
   };
 
+  // maxWidth de Modal.jsx es un valor CSS aplicado por style inline, no una
+  // clase de Tailwind — "max-w-md" se ignoraba silenciosamente y dejaba el
+  // modal sin límite de ancho real (casi pantalla completa).
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Procesar Cobro de Venta" maxWidth="max-w-md">
-      <form onSubmit={handleSubmit(submit)} className="space-y-5">
-        {/* Banner de Total a Pagar */}
-        <div className="bg-gray-950 text-white rounded-xl p-5 text-center shadow-inner">
-          <span className="text-xs uppercase tracking-wider text-gray-400 font-semibold block mb-1">
+    <Modal isOpen={isOpen} onClose={onClose} title="Procesar Cobro de Venta" maxWidth="28rem">
+      {/* noValidate: apagamos la validación nativa del navegador (el globito
+          "Completa este campo") — zod + react-hook-form ya muestran sus
+          propios mensajes de error, tener las dos a la vez se veía mal. */}
+      <form onSubmit={handleSubmit(submit)} noValidate className="max-h-[70vh] overflow-y-auto pr-0.5 space-y-4">
+        {/* Total a Pagar — ocupa todo el ancho del modal. Gris neutro (no celeste)
+            para no repetir el mismo color que ya usa el botón "Cancelar" del
+            sistema compartido de botones (btn-secondary es celeste por diseño). */}
+        <div className="flex flex-col items-center rounded-2xl border border-gray-200 bg-gray-50 py-4">
+          <span className="text-xs uppercase tracking-wider text-gray-500 font-bold mb-0.5">
             Total a Pagar
           </span>
-          <span className="text-3xl font-black tracking-tight text-white">
-            {formatCurrency(total)}
-          </span>
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={total}
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 8 }}
+              transition={{ type: 'spring', stiffness: 450, damping: 30 }}
+              className="text-3xl font-black tracking-tight text-gray-950"
+            >
+              {formatCurrency(total)}
+            </motion.div>
+          </AnimatePresence>
         </div>
 
-        {/* Selector de Medios de Pago */}
+        {/* Selector de Medios de Pago — tarjetas con barra de acento deslizante */}
         <div className="space-y-2">
           <label className="text-xs font-bold uppercase tracking-wider text-gray-500 block">
             Medio de Pago
           </label>
-          <div className="grid grid-cols-2 gap-2.5">
-            {paymentMethods.map((m) => {
+          <div className="flex flex-col gap-2">
+            {paymentMethods.map((m, i) => {
               const Icon = m.icon;
               const isSelected = method === m.id;
               return (
                 <motion.button
                   key={m.id}
                   type="button"
-                  whileTap={{ scale: 0.96 }}
-                  className={`flex items-center justify-center gap-2 p-3 rounded-lg border text-sm font-semibold transition-colors cursor-pointer bg-white ${
-                    isSelected ? m.active : `${m.color} text-gray-700 hover:bg-gray-50`
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: i * 0.04, type: 'spring', stiffness: 420, damping: 30 }}
+                  whileTap={{ scale: 0.98 }}
+                  className={`relative flex items-center gap-3 pl-4 pr-3 py-2.5 rounded-xl border text-left cursor-pointer overflow-hidden bg-white transition-colors ${
+                    isSelected ? 'border-transparent' : 'border-gray-200 hover:border-gray-300'
                   }`}
                   onClick={() => setValue('method', m.id, { shouldValidate: true })}
                 >
-                  <Icon size={18} />
-                  <span>{m.name}</span>
+                  {/* Barra de acento que se desliza entre filas al cambiar de método */}
+                  {isSelected && (
+                    <motion.span
+                      layoutId="paymentMethodAccent"
+                      transition={{ type: 'spring', stiffness: 500, damping: 38 }}
+                      className={`absolute left-0 top-0 bottom-0 w-1 ${m.accent}`}
+                    />
+                  )}
+                  {isSelected && (
+                    <motion.span
+                      layoutId="paymentMethodTint"
+                      transition={{ type: 'spring', stiffness: 500, damping: 38 }}
+                      className={`absolute inset-0 ${m.activeBg}`}
+                    />
+                  )}
+
+                  <span
+                    className={`relative z-10 w-10 h-10 rounded-lg flex items-center justify-center shrink-0 transition-colors ${
+                      isSelected ? m.iconActive : m.iconIdle
+                    }`}
+                  >
+                    <Icon size={20} />
+                  </span>
+                  <span className="relative z-10 min-w-0 flex-1">
+                    <span className={`block text-sm font-bold ${isSelected ? m.activeText : 'text-gray-800'}`}>
+                      {m.name}
+                    </span>
+                    <span className="block text-[11px] text-gray-500 truncate">{m.hint}</span>
+                  </span>
+
+                  <AnimatePresence>
+                    {isSelected && (
+                      <motion.span
+                        initial={{ scale: 0, opacity: 0, rotate: -45 }}
+                        animate={{ scale: 1, opacity: 1, rotate: 0 }}
+                        exit={{ scale: 0, opacity: 0 }}
+                        transition={{ type: 'spring', stiffness: 500, damping: 22 }}
+                        className={`relative z-10 shrink-0 ${m.check}`}
+                      >
+                        <CheckCircle2 size={18} />
+                      </motion.span>
+                    )}
+                  </AnimatePresence>
                 </motion.button>
               );
             })}
@@ -170,13 +288,13 @@ export const PaymentModal = ({ isOpen, onClose, total, onConfirmSale }) => {
           )}
         </AnimatePresence>
 
-        {/* Botones de acción */}
-        <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-100">
-          <Button variant="secondary" onClick={onClose}>
+        {/* Botones de acción — misma proporción, ocupan todo el ancho del modal */}
+        <div className="grid grid-cols-2 gap-3 pt-4 border-t border-gray-100">
+          <Button variant="secondary" onClick={onClose} className="w-full">
             Cancelar
           </Button>
-          <Button type="submit" variant="primary" icon={CheckCircle}>
-            Confirmar y Emitir Ticket
+          <Button type="submit" variant="primary" icon={CheckCircle} className="w-full">
+            Confirmar
           </Button>
         </div>
       </form>
