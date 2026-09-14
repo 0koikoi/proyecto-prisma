@@ -1,22 +1,10 @@
 /**
- * RESPONSABLE: Zully
- * MÓDULO: Pedidos y Logística de Envíos — Servicios de Órdenes
- *
- * Conecta la gestión de pedidos digitales (WhatsApp, Messenger, Web)
- * y seguimiento de envíos vía couriers (Shalom, Comité 6, Motorizado) con Spring Boot.
- *
- * ENDPOINTS ASOCIADOS (Sprint 7):
- *  - GET   /api/orders               -> Listado general de pedidos
- *  - GET   /api/orders/{id}          -> Detalle del pedido y productos
- *  - PATCH /api/orders/{id}/status   -> Actualizar estado (PENDING, PREPARING, SHIPPED, DELIVERED)
- *  - POST  /api/orders               -> Registrar nuevo pedido manual o desde WhatsApp
- *
- * TODO Zully:
- *  - Conectar llamadas reales cuando el backend esté levantado.
+ * Servicio de órdenes y logística de pedidos.
+ * Responsable: Zully
  */
 import { apiClient } from '../../../core/api/apiClient';
 
-const MOCK_ORDERS = [
+let MOCK_ORDERS = [
   {
     id: 'ORD-1001',
     customerName: 'Lucía Morales',
@@ -44,7 +32,7 @@ const MOCK_ORDERS = [
     total: 89.0,
     status: 'PENDIENTE',
     courier: 'Motorizado Local',
-    trackingNumber: '-',
+    trackingNumber: 'Reparto Express Local',
     createdAt: '2026-09-06T12:15:00Z',
     items: [
       { id: 2, productName: 'Vestido Floral Verano', quantity: 1, price: 89.00 },
@@ -60,7 +48,7 @@ const MOCK_ORDERS = [
     total: 155.0,
     status: 'EN_PREPARACION',
     courier: 'Comité 6',
-    trackingNumber: 'Placa ABC-123',
+    trackingNumber: 'Placa: ABC-123 - Chofer: 962112233',
     createdAt: '2026-09-06T09:40:00Z',
     items: [
       { id: 1, productName: 'Polera Oversize Urban', quantity: 2, price: 69.90 },
@@ -83,19 +71,21 @@ export const ordersService = {
 
   async updateOrderStatus(orderId, status) {
     // return apiClient.patch(`/orders/${orderId}/status`, { status });
-    console.log('[Mock Pedidos] Actualizando estado de pedido:', orderId, status);
+    MOCK_ORDERS = MOCK_ORDERS.map((o) =>
+      o.id === orderId ? { ...o, status } : o
+    );
     return { success: true, orderId, status };
   },
 
   async createOrder(orderData) {
     // return apiClient.post('/orders', orderData);
-    console.log('[Mock Pedidos] Creando nuevo pedido:', orderData);
     const newOrder = {
       id: `ORD-${Date.now().toString().slice(-4)}`,
       ...orderData,
       createdAt: new Date().toISOString(),
       status: 'PENDIENTE',
     };
+    MOCK_ORDERS = [newOrder, ...MOCK_ORDERS];
     return newOrder;
   },
 };
