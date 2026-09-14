@@ -30,7 +30,6 @@ import { useCashRegister } from './hooks/useCashRegister';
 import { CashOpenModal } from './components/CashOpenModal';
 import { CashCloseModal } from './components/CashCloseModal';
 import { CashRegisterSkeleton } from './components/CashRegisterSkeleton';
-import { MobileSidebarDrawer } from '../pos/components/MobileSidebarDrawer';
 import { Button } from '../../shared/components/Button';
 import { formatCurrency, formatDate } from '../../shared/utils/formatters';
 
@@ -55,26 +54,28 @@ export const CashRegisterPage = () => {
 
   return (
     <div className="page-container">
-      {/* Botón de menú móvil: hijo directo del contenedor de página completa
-          para que el `sticky` tenga recorrido en todo el alto de la vista */}
-      <MobileSidebarDrawer />
-
       <Toaster position="top-center" theme="light" richColors />
 
-      {/* Encabezado */}
-      <div className="page-header flex-col sm:flex-row items-stretch sm:items-center gap-4">
-        <div>
-          <h1>Caja y Arqueo Diario</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Control de turno, sencillo inicial y cuadre de caja diario.</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <span className="hidden md:inline text-[10px] font-semibold text-gray-400 border border-gray-200 rounded px-1.5 py-0.5">
+      {/* Encabezado — pasa a fila recién en `lg`: en anchos intermedios (tablet)
+          "Cerrar Turno"/"Abrir Turno" no cabían junto al título y se envolvían
+          en dos líneas desparejas; ahora se quedan en su propia fila de 2
+          columnas parejas hasta que realmente sobra espacio para ir al lado
+          del título. */}
+      <div className="page-header flex-col lg:flex-row items-stretch lg:items-center gap-4">
+        <div className="flex items-center justify-between gap-3 lg:block">
+          <div>
+            <h1>Caja y Arqueo Diario</h1>
+            <p className="text-sm text-gray-500 mt-0.5">Control de turno, sencillo inicial y cuadre de caja diario.</p>
+          </div>
+          <span className="hidden xl:inline text-[10px] font-semibold text-gray-400 border border-gray-200 rounded px-1.5 py-0.5 shrink-0">
             F2 abrir · F4 cerrar
           </span>
-          <Button variant="secondary" icon={Lock} onClick={() => setIsCloseModal(true)} className="flex-1 sm:flex-none">
+        </div>
+        <div className="grid grid-cols-2 lg:flex lg:items-center gap-3 shrink-0">
+          <Button variant="secondary" icon={Lock} onClick={() => setIsCloseModal(true)} className="w-full lg:w-auto">
             Cerrar Turno
           </Button>
-          <Button variant="primary" icon={Unlock} onClick={() => setIsOpenModal(true)} className="flex-1 sm:flex-none">
+          <Button variant="primary" icon={Unlock} onClick={() => setIsOpenModal(true)} className="w-full lg:w-auto">
             Abrir Turno
           </Button>
         </div>

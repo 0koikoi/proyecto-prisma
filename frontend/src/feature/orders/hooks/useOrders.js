@@ -1,12 +1,6 @@
 /**
- * RESPONSABLE: Zully
- * MÓDULO: Pedidos y Logística — Hook de Pedidos
- *
- * Administra la carga de pedidos, filtro por estado (PENDIENTE, EN_PREPARACION, ENVIADO)
- * y la actualización reactiva del estado del envío.
- *
- * TODO Zully:
- *  - Agregar filtro adicional por canal (WhatsApp vs Web) o por Courier (Shalom vs Comité 6).
+ * Hook para gestión de pedidos y filtros.
+ * Responsable: Zully
  */
 import { useState, useEffect } from 'react';
 import { ordersService } from '../services/ordersService';
@@ -15,6 +9,7 @@ export const useOrders = () => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('ALL');
+  const [channelFilter, setChannelFilter] = useState('ALL');
 
   const fetchOrders = async () => {
     try {
@@ -43,8 +38,27 @@ export const useOrders = () => {
     }
   };
 
+  const createOrder = async (orderData) => {
+    const created = await ordersService.createOrder(orderData);
+    setOrders((prev) => [created, ...prev]);
+    return created;
+  };
+
   const filteredOrders = orders.filter((o) => {
-    return statusFilter === 'ALL' || o.status === statusFilter;
+    // Filtro por estado
+    const matchesStatus =
+      statusFilter === 'ALL' ||
+      o.status === statusFilter ||
+      (statusFilter === 'PENDING' && o.status === 'PENDIENTE') ||
+      (statusFilter === 'PREPARING' && o.status === 'EN_PREPARACION') ||
+      (statusFilter === 'SHIPPED' && o.status === 'ENVIADO') ||
+      (statusFilter === 'DELIVERED' && o.status === 'ENTREGADO');
+
+    // Filtro por canal
+    const matchesChannel =
+      channelFilter === 'ALL' || o.channel === channelFilter;
+
+    return matchesStatus && matchesChannel;
   });
 
   return {
@@ -53,7 +67,10 @@ export const useOrders = () => {
     loading,
     statusFilter,
     setStatusFilter,
+    channelFilter,
+    setChannelFilter,
     updateStatus,
+    createOrder,
     reload: fetchOrders,
   };
 };

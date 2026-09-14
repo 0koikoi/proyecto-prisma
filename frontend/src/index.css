@@ -139,7 +139,7 @@
 
   /* Tarjetas y contenedores */
   .content-card {
-    @apply bg-white border border-gray-200/80 rounded-2xl p-6 shadow-sm hover:shadow-md transition-shadow duration-200;
+    @apply bg-white border border-gray-200/80 rounded-2xl p-6 shadow-sm hover:shadow-md transition-all duration-200 ease-out;
   }
 
   .filters-card {
@@ -149,7 +149,8 @@
   /* Botones */
   .btn {
     @apply inline-flex items-center justify-center gap-2 font-semibold uppercase tracking-wider
-           rounded-xl cursor-pointer border transition-all duration-200 no-underline active:scale-[0.98];
+           rounded-xl cursor-pointer border transition-all duration-150 ease-out no-underline
+           hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] select-none;
   }
 
   .btn-sm   { @apply px-3.5 py-1.5 text-xs; }
@@ -191,12 +192,12 @@
 
   .input-wrapper {
     @apply flex items-center border border-gray-300 rounded-xl bg-white px-3
-           transition-all duration-200 focus-within:border-[#1c1c1c] focus-within:ring-2 focus-within:ring-[#1c1c1c]/10;
+           transition-all duration-150 ease-out focus-within:border-[#1c1c1c] focus-within:ring-2 focus-within:ring-[#1c1c1c]/10;
   }
 
   .input-wrapper-ice {
     @apply flex items-center border border-gray-300 rounded-xl bg-white px-3
-           transition-all duration-200 focus-within:border-[#1c1c1c] focus-within:ring-3 focus-within:ring-[#d6efff];
+           transition-all duration-150 ease-out focus-within:border-[#1c1c1c] focus-within:ring-3 focus-within:ring-[#d6efff];
   }
 
   .input-element {
@@ -240,17 +241,40 @@
   }
 
   .custom-table tbody tr {
-    @apply hover:bg-[#f2f8fd] transition-colors;
+    @apply hover:bg-[#f2f8fd] transition-colors duration-150;
+  }
+
+  /* Animaciones suaves para modales */
+  @keyframes modal-fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes modal-scale-in {
+    from {
+      opacity: 0;
+      transform: scale(0.97) translateY(4px);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1) translateY(0);
+    }
   }
 
   /* Modales */
   .modal-overlay {
-    @apply fixed inset-0 bg-[#1c1c1c]/60 backdrop-blur-md flex items-center justify-center z-50 p-4;
-    -webkit-backdrop-filter: blur(8px);
+    @apply fixed inset-0 bg-[#1c1c1c]/50 backdrop-blur-sm flex items-center justify-center z-50 p-4;
+    -webkit-backdrop-filter: blur(6px);
+    animation: modal-fade-in 180ms cubic-bezier(0.16, 1, 0.3, 1);
   }
 
   .modal-content {
     @apply bg-white w-full rounded-2xl shadow-2xl transition-all border border-gray-100;
+    animation: modal-scale-in 200ms cubic-bezier(0.16, 1, 0.3, 1);
   }
 
   .modal-header {
