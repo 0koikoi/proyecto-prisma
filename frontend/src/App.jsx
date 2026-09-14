@@ -29,7 +29,7 @@ import { SettingsPage }        from './feature/settings/SettingsPage';
 
 function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename={import.meta.env.BASE_URL}>
       <AuthProvider>
         <ToastProvider>
           <Routes>
