@@ -39,8 +39,13 @@ const COINS = [5, 2, 1, 0.5, 0.2, 0.1];
 export const CashCloseModal = ({ isOpen, onClose, onConfirm, expectedTotal }) => {
   const schema = z
     .object({
-      countedCash: z.coerce
-        .number()
+      // transform manual con parseFloat en vez de z.coerce.number(): así el
+      // único mensaje de error es el nuestro. z.coerce.number() coercionaba
+      // '' a 0 en silencio (Number('') === 0) y reportaba un "faltante" que
+      // en realidad era solo un campo sin completar.
+      countedCash: z
+        .union([z.string(), z.number()])
+        .transform((v) => parseFloat(v))
         .refine((v) => !Number.isNaN(v) && v >= 0, { message: 'Ingresa el efectivo contado (0 o más)' }),
       notes: z.string().optional(),
     })
@@ -94,18 +99,28 @@ export const CashCloseModal = ({ isOpen, onClose, onConfirm, expectedTotal }) =>
     onClose();
   };
 
+  // maxWidth de Modal.jsx es un valor CSS (style inline), no una clase de
+  // Tailwind — "max-w-md" se ignoraba y dejaba el modal casi a pantalla completa.
+  // max-h-[70vh]+overflow-y-auto: este modal es el más largo del sistema (banner +
+  // calculadora + indicador + observaciones), así que es el que más se beneficia
+  // del límite de alto para nunca desbordar la pantalla.
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Cierre de Caja y Arqueo Físico" maxWidth="max-w-md">
-      <form onSubmit={handleSubmit(submit)} className="space-y-4">
-        {/* Banner de efectivo esperado */}
-        <div className="bg-gray-950 text-white rounded-xl p-4 flex items-center justify-between gap-3">
+    <Modal isOpen={isOpen} onClose={onClose} title="Cierre de Caja y Arqueo Físico" maxWidth="28rem">
+      {/* noValidate: apagamos la validación nativa del navegador (el globito
+          "Completa este campo") — zod + react-hook-form ya muestran sus
+          propios mensajes de error, tener las dos a la vez se veía mal. */}
+      <form onSubmit={handleSubmit(submit)} noValidate className="max-h-[70vh] overflow-y-auto pr-0.5 space-y-4">
+        {/* Banner de efectivo esperado — gris claro, igual al "Total a Pagar"
+            del POS, en vez del negro puro que quedaba muy pesado junto a los
+            botones de abajo */}
+        <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <span className="text-xs uppercase text-gray-400 font-semibold block">
+            <span className="text-xs uppercase text-gray-500 font-bold block">
               Efectivo Esperado en Gaveta
             </span>
-            <span className="text-xs text-gray-500 block">Sencillo inicial + ventas efectivo</span>
+            <span className="text-xs text-gray-400 block">Sencillo inicial + ventas efectivo</span>
           </div>
-          <strong className="text-2xl font-black text-white shrink-0">
+          <strong className="text-2xl font-black text-gray-950 shrink-0">
             {formatCurrency(expectedTotal)}
           </strong>
         </div>
@@ -274,13 +289,15 @@ export const CashCloseModal = ({ isOpen, onClose, onConfirm, expectedTotal }) =>
           )}
         />
 
-        {/* Acciones */}
-        <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-100">
-          <Button variant="secondary" onClick={onClose}>
+        {/* Acciones — tamaño normal (md) y "primary" en vez de "danger": el
+            rojo se sentía como una alerta de error, cuando cerrar turno es
+            una acción normal del día a día, no algo destructivo */}
+        <div className="grid grid-cols-2 gap-3 pt-4 border-t border-gray-100">
+          <Button variant="secondary" onClick={onClose} className="w-full">
             Cancelar
           </Button>
-          <Button type="submit" variant="danger">
-            Finalizar Turno y Cerrar Caja
+          <Button type="submit" variant="primary" className="w-full">
+            Cerrar Caja
           </Button>
         </div>
       </form>

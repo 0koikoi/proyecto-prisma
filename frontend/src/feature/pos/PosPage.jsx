@@ -37,7 +37,6 @@ import { CartTicket } from './components/CartTicket';
 import { PaymentModal } from './components/PaymentModal';
 import { TicketReceiptModal } from './components/TicketReceiptModal';
 import { QuickSearchPalette } from './components/QuickSearchPalette';
-import { MobileSidebarDrawer } from './components/MobileSidebarDrawer';
 import { posService } from './services/posService';
 import { Input } from '../../shared/components/Input';
 
@@ -143,10 +142,6 @@ export const PosPage = () => {
 
   return (
     <div className="flex flex-col gap-3 lg:gap-5">
-      {/* Botón de menú móvil: hijo directo del contenedor de página completa
-          para que el `sticky` tenga recorrido en todo el alto de la vista */}
-      <MobileSidebarDrawer />
-
       <div className="flex flex-col lg:flex-row gap-5 lg:h-[calc(100vh-130px)]">
       <Toaster position="top-center" theme="light" richColors />
 
@@ -224,7 +219,10 @@ export const PosPage = () => {
         </div>
 
         {/* Cuadrícula de productos */}
-        <div className="flex-1 overflow-y-auto">
+        {/* p-1: dejamos aire alrededor para que el borde/sombra de hover de la
+            primera fila (whileHover y:-2 en ProductGrid) no se recorte contra
+            el borde del contenedor con scroll. */}
+        <div className="flex-1 overflow-y-auto p-1 -m-1">
           {productsLoading ? (
             <ProductGridSkeleton />
           ) : (
