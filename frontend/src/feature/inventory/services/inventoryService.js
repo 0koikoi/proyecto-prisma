@@ -26,51 +26,60 @@ import { apiClient } from '../../../core/api/apiClient';
 import mockProductsData from './mockProducts.json';
 import mockCategoriesData from './mockCategories.json';
 
-const MOCK_PRODUCTS = mockProductsData;
-const MOCK_CATEGORIES = mockCategoriesData;
+let MOCK_PRODUCTS = [...mockProductsData];
+const MOCK_CATEGORIES = [...mockCategoriesData];
 
 export const inventoryService = {
   async getProducts() {
-    // Modo producción con backend: return apiClient.get('/products');
     return [...MOCK_PRODUCTS];
   },
 
   async getProductById(id) {
-    // return apiClient.get(`/products/${id}`);
     const found = MOCK_PRODUCTS.find((p) => p.id === Number(id));
     if (!found) throw new Error('Producto no encontrado');
     return { ...found };
   },
 
   async createProduct(productData) {
-    // return apiClient.post('/products', productData);
-    console.log('[Mock] Creando producto:', productData);
+    const categoryObj = MOCK_CATEGORIES.find((c) => c.id === Number(productData.categoryId));
     const newProduct = {
       id: Date.now(),
       ...productData,
+      category: categoryObj ? categoryObj.name : 'General',
       price: parseFloat(productData.price) || 0,
       costPrice: parseFloat(productData.costPrice) || 0,
       stock: parseInt(productData.stock, 10) || 0,
       minStockAlert: parseInt(productData.minStockAlert, 10) || 3,
       isActive: true,
     };
+    MOCK_PRODUCTS = [newProduct, ...MOCK_PRODUCTS];
     return newProduct;
   },
 
   async updateProduct(id, productData) {
-    // return apiClient.put(`/products/${id}`, productData);
-    console.log('[Mock] Actualizando producto:', id, productData);
+    const categoryObj = MOCK_CATEGORIES.find((c) => c.id === Number(productData.categoryId));
+    MOCK_PRODUCTS = MOCK_PRODUCTS.map((p) => {
+      if (p.id === Number(id)) {
+        return {
+          ...p,
+          ...productData,
+          category: categoryObj ? categoryObj.name : p.category,
+          price: parseFloat(productData.price) || p.price,
+          costPrice: parseFloat(productData.costPrice) || p.costPrice,
+          stock: parseInt(productData.stock, 10) ?? p.stock,
+        };
+      }
+      return p;
+    });
     return { id, ...productData };
   },
 
   async deleteProduct(id) {
-    // return apiClient.delete(`/products/${id}`);
-    console.log('[Mock] Eliminando producto (baja lógica):', id);
+    MOCK_PRODUCTS = MOCK_PRODUCTS.filter((p) => p.id !== Number(id));
     return { success: true };
   },
 
   async getCategories() {
-    // return apiClient.get('/categories');
     return [...MOCK_CATEGORIES];
   },
 };

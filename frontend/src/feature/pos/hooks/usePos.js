@@ -27,7 +27,9 @@ export const usePos = (catalog = []) => {
   // Descuento manual del ticket: { type: 'PERCENT' | 'AMOUNT', value: number } o null
   const [discount, setDiscount] = useState(null);
   const catalogRef = useRef(catalog);
-  catalogRef.current = catalog;
+  useEffect(() => {
+    catalogRef.current = catalog;
+  }, [catalog]);
 
   const addToCart = useCallback((product) => {
     if (product.stock <= 0) {
