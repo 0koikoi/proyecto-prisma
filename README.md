@@ -10,16 +10,16 @@
 
 > **Plataforma web integral de gestión comercial, control de inventario, punto de venta (POS), caja y finanzas para Tienda Prisma (Huánuco, Perú).**
 
-🔗 **Demo en línea:** [https://0koikoi.github.io/proyecto-prisma/](https://0koikoi.github.io/proyecto-prisma/)
+**Demo en línea:** [https://0koikoi.github.io/proyecto-prisma/](https://0koikoi.github.io/proyecto-prisma/)
 
 ---
 
-## 📌 1. Acerca del Proyecto
+## 1. Acerca del Proyecto
 
 **Tienda Prisma** es un emprendimiento de moda ubicado en Huánuco que opera a través de dos canales principales: **tienda física** y ventas por **redes sociales** (Instagram, WhatsApp). Cuenta con tres líneas de negocio especializadas:
-- 👗 **Moda Femenina:** Ropa juvenil de tendencia.
-- 🛹 **Moda Urbana:** Prendas unisex y streetwear.
-- 🐾 **Mascotas:** Ropa y accesorios para perros y gatos.
+- **Moda Femenina:** Ropa juvenil de tendencia.
+- **Moda Urbana:** Prendas unisex y streetwear.
+- **Mascotas:** Ropa y accesorios para perros y gatos.
 
 ### Problemática que Resuelve
 Históricamente, el control de ventas, inventario y caja se realizaba en hojas de cálculo de Excel manuales, ocasionando:
@@ -31,7 +31,7 @@ Este sistema centraliza la operación física y digital en una sola plataforma e
 
 ---
 
-## 👥 2. Equipo de Desarrollo y Distribución de Roles
+## 2. Equipo de Desarrollo y Distribución de Roles
 
 | Integrante | Rol en el Equipo | Módulo Asignado | Rama Git Oficial | Clases / Componentes Clave |
 | :--- | :--- | :--- | :--- | :--- |
@@ -43,7 +43,7 @@ Este sistema centraliza la operación física y digital en una sola plataforma e
 
 ---
 
-## 🏛️ 3. Arquitectura del Repositorio (Monorepo)
+## 3. Arquitectura del Repositorio (Monorepo)
 
 ```
 proyecto-prisma/
@@ -76,20 +76,20 @@ proyecto-prisma/
 
 ---
 
-## 📦 4. Módulos Principales del Sistema
+## 4. Módulos Principales del Sistema
 
-1. 📊 **Dashboard Ejecutivo:** Resumen de ingresos diarios, ticket promedio, prendas con stock crítico y gráficos interactivos de ventas semanales.
-2. 🛒 **Punto de Venta (POS):** Cobro rápido con soporte de teclado para escáner de código de barras USB (*keyboard wedge*), cálculo de vuelto, selección de medios de pago (Efectivo, Yape, Plin, Tarjetas) e impresión de ticket.
-3. 📦 **Inventario & Kardex:** Gestión de catálogo (SKU, código de barras, precios y fotos), filtros por categoría y registro de movimientos de stock.
-4. 💵 **Caja y Turnos:** Apertura de turno con fondo inicial, control de ingresos/egresos y cuadre de caja con cálculo de sobrantes/faltantes.
-5. 🚚 **Gestión de Pedidos:** Control de ventas por WhatsApp e Instagram, tracking de estados (*Pendiente*, *En preparación*, *Enviado*, *Entregado*) y couriers locales (**Shalom**, **Comité 6**).
-6. 🏭 **Proveedores & Abastecimiento:** Directorio con vista dual (Tarjetas de presentación con enlace directo a WhatsApp y Tabla), más registro de reposición de mercadería.
-7. 📈 **Reporte Financiero:** Balance integral de ingresos y egresos, margen bruto por categoría y exportación de transacciones a formato CSV para Excel.
-8. ⚙️ **Configuración:** Control de usuarios (`ADMIN` / `VENDEDOR`), líneas de negocio y parámetros de tienda (Moneda Soles PEN, umbral de stock bajo).
+1. **Dashboard Ejecutivo:** Resumen de ingresos diarios, ticket promedio, prendas con stock crítico y gráficos interactivos de ventas semanales.
+2. **Punto de Venta (POS):** Cobro rápido con soporte de teclado para escáner de código de barras USB (*keyboard wedge*), cálculo de vuelto, selección de medios de pago (Efectivo, Yape, Plin, Tarjetas) e impresión de ticket.
+3. **Inventario & Kardex:** Gestión de catálogo (SKU, código de barras, precios y fotos), filtros por categoría y registro de movimientos de stock.
+4. **Caja y Turnos:** Apertura de turno con fondo inicial, control de ingresos/egresos y cuadre de caja con cálculo de sobrantes/faltantes.
+5. **Gestión de Pedidos:** Control de ventas por WhatsApp e Instagram, tracking de estados (*Pendiente*, *En preparación*, *Enviado*, *Entregado*) y couriers locales (**Shalom**, **Comité 6**).
+6. **Proveedores & Abastecimiento:** Directorio con vista dual (Tarjetas de presentación con enlace directo a WhatsApp y Tabla), más registro de reposición de mercadería.
+7. **Reporte Financiero:** Balance integral de ingresos y egresos, margen bruto por categoría y exportación de transacciones a formato CSV para Excel.
+8. **Configuración:** Control de usuarios (`ADMIN` / `VENDEDOR`), líneas de negocio y parámetros de tienda (Moneda Soles PEN, umbral de stock bajo).
 
 ---
 
-## 🗄️ 5. Modelo Relacional de Base de Datos
+## 5. Modelo Relacional de Base de Datos
 
 El diseño contempla 12 entidades relacionales conectadas para evitar redundancia y garantizar la integridad contable:
 
@@ -120,7 +120,7 @@ El diseño contempla 12 entidades relacionales conectadas para evitar redundanci
 
 ---
 
-## 🚀 6. Guía de Instalación y Ejecución Local
+## 6. Guía de Instalación y Ejecución Local
 
 ### Prerrequisitos
 - **Node.js:** Versión 20.x o superior
@@ -167,20 +167,20 @@ Abre tu navegador en `http://localhost:5173/proyecto-prisma/` o `http://localhos
 
 ---
 
-## 🌐 7. Despliegue en Producción (CI/CD)
+## 7. Despliegue en Producción (CI/CD)
 
 El frontend cuenta con un pipeline de integración y despliegue continuo mediante **GitHub Actions** (`.github/workflows/deploy.yml`).
 
-- Cada vez que se integra código a la rama `main`, GitHub Actions:
+- Cada vez que se integra código a la rama `main` o `develop`, GitHub Actions:
   1. Instala dependencias con `npm ci`.
   2. Compila el bundle optimizado con `npm run build`.
   3. Despliega automáticamente en **GitHub Pages**.
 
-🔗 **URL Pública:** [https://0koikoi.github.io/proyecto-prisma/](https://0koikoi.github.io/proyecto-prisma/)
+**URL Pública:** [https://0koikoi.github.io/proyecto-prisma/](https://0koikoi.github.io/proyecto-prisma/)
 
 ---
 
-## 🌿 8. Estrategia de Ramas Git (GitFlow)
+## 8. Estrategia de Ramas Git (GitFlow)
 
 El equipo aplica el flujo de trabajo coordinado por la líder de proyecto:
 
@@ -193,12 +193,12 @@ El equipo aplica el flujo de trabajo coordinado por la líder de proyecto:
   (ramas por integrante) └──────┘
 ```
 
-- **`main`:** Código 100% estable para despliegues oficiales y evaluación.
+- **`main`:** Código estable para despliegues oficiales y evaluación.
 - **`develop`:** Rama común de integración.
 - **`feature/<nombre-modulo>`:** Ramas individuales de desarrollo por integrante.
 - **`fix/<nombre-arreglo>`:** Ramas para homologación de interfaz y resolución de conflictos.
 
 ---
 
-## 📄 Licencia y Derechos
-Desarrollado por el equipo de proyecto para **Tienda Prisma** — Todos los derechos reservados © 2026.
+## Licencia y Derechos
+Desarrollado por el equipo de proyecto para **Tienda Prisma** — Todos los derechos reservados (c) 2026.
