@@ -19,12 +19,17 @@
  * TODO Leo: Solo puede haber UNA caja abierta — validar en el backend.
  * TODO Leo: El cierre de caja calcula expectedCash = initialCash + totalCashSales.
  *           El sistema muestra la diferencia (sobrante o faltante).
+ *
+ * Atajos de teclado: F2 abre el turno, F4 lo cierra, Esc cierra el modal activo.
  */
 import { useState } from 'react';
+import { Toaster } from 'sonner';
+import { useHotkeys } from 'react-hotkeys-hook';
 import { Lock, Unlock, DollarSign, Smartphone, CreditCard } from 'lucide-react';
 import { useCashRegister } from './hooks/useCashRegister';
 import { CashOpenModal } from './components/CashOpenModal';
 import { CashCloseModal } from './components/CashCloseModal';
+import { CashRegisterSkeleton } from './components/CashRegisterSkeleton';
 import { Button } from '../../shared/components/Button';
 import { formatCurrency, formatDate } from '../../shared/utils/formatters';
 
@@ -33,7 +38,11 @@ export const CashRegisterPage = () => {
   const [isOpenModal, setIsOpenModal] = useState(false);
   const [isCloseModal, setIsCloseModal] = useState(false);
 
-  if (!cashStatus) return null;
+  useHotkeys('f2', (e) => { e.preventDefault(); setIsOpenModal(true); });
+  useHotkeys('f4', (e) => { e.preventDefault(); setIsCloseModal(true); });
+  useHotkeys('esc', () => { setIsOpenModal(false); setIsCloseModal(false); }, { enabled: isOpenModal || isCloseModal });
+
+  if (!cashStatus) return <CashRegisterSkeleton />;
 
   const totalIngresos =
     cashStatus.totalCashSales +
@@ -45,32 +54,43 @@ export const CashRegisterPage = () => {
 
   return (
     <div className="page-container">
-      {/* Encabezado */}
-      <div className="page-header">
-        <div>
-          <h1>Caja y Arqueo Diario</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Control de turno, sencillo inicial y cuadre de caja diario.</p>
+      <Toaster position="top-center" theme="light" richColors />
+
+      {/* Encabezado — pasa a fila recién en `lg`: en anchos intermedios (tablet)
+          "Cerrar Turno"/"Abrir Turno" no cabían junto al título y se envolvían
+          en dos líneas desparejas; ahora se quedan en su propia fila de 2
+          columnas parejas hasta que realmente sobra espacio para ir al lado
+          del título. */}
+      <div className="page-header flex-col lg:flex-row items-stretch lg:items-center gap-4">
+        <div className="flex items-center justify-between gap-3 lg:block">
+          <div>
+            <h1>Caja y Arqueo Diario</h1>
+            <p className="text-sm text-gray-500 mt-0.5">Control de turno, sencillo inicial y cuadre de caja diario.</p>
+          </div>
+          <span className="hidden xl:inline text-[10px] font-semibold text-gray-400 border border-gray-200 rounded px-1.5 py-0.5 shrink-0">
+            F2 abrir · F4 cerrar
+          </span>
         </div>
-        <div className="flex gap-3">
-          <Button variant="secondary" icon={Lock} onClick={() => setIsCloseModal(true)}>
+        <div className="grid grid-cols-2 lg:flex lg:items-center gap-3 shrink-0">
+          <Button variant="secondary" icon={Lock} onClick={() => setIsCloseModal(true)} className="w-full lg:w-auto">
             Cerrar Turno
           </Button>
-          <Button variant="primary" icon={Unlock} onClick={() => setIsOpenModal(true)}>
+          <Button variant="primary" icon={Unlock} onClick={() => setIsOpenModal(true)} className="w-full lg:w-auto">
             Abrir Turno
           </Button>
         </div>
       </div>
 
       {/* Estado del turno */}
-      <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex items-center justify-between">
+      <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div className="flex items-center gap-3">
-          <span className="w-3 h-3 rounded-full bg-emerald-500 animate-pulse" />
+          <span className="w-3 h-3 rounded-full bg-emerald-500 animate-pulse shrink-0" />
           <div>
             <p className="text-sm font-bold text-emerald-900">Caja del Turno: ABIERTA</p>
             <p className="text-xs text-emerald-700">Abierta por {cashStatus.openedBy ?? 'Personal'} a las {formatDate(cashStatus.openedAt)}</p>
           </div>
         </div>
-        <div className="text-right">
+        <div className="sm:text-right">
           <p className="text-xs text-emerald-700 font-semibold uppercase tracking-wide">Sencillo Inicial</p>
           <p className="text-xl font-bold text-emerald-900">{formatCurrency(cashStatus.initialCash)}</p>
         </div>
@@ -89,12 +109,12 @@ export const CashRegisterPage = () => {
 
       {/* Resumen del arqueo */}
       <div className="content-card">
-        <div className="flex items-center justify-between border-b border-gray-100 pb-4 mb-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-gray-100 pb-4 mb-4">
           <div>
             <p className="text-xs font-semibold text-gray-500 uppercase">Total Ventas Registradas</p>
             <p className="text-2xl font-black text-gray-950">{formatCurrency(totalIngresos)}</p>
           </div>
-          <div className="text-right">
+          <div className="sm:text-right">
             <p className="text-xs font-semibold text-gray-500 uppercase">Efectivo Físico Esperado</p>
             <p className="text-2xl font-black text-emerald-600">{formatCurrency(efectivoEsperado)}</p>
           </div>

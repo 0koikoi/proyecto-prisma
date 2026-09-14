@@ -3,12 +3,13 @@
  * MÓDULO: Punto de Venta (POS) — Catálogo Visual de Productos
  *
  * Muestra las tarjetas de los productos para selección rápida en mostrador.
+ * Usa `motion` para dar retroalimentación táctil inmediata al tocar/clicar
+ * una tarjeta (RNF02: la interacción debe sentirse instantánea).
  *
  * TODO Leo:
- *  - Indicar visualmente si el producto tiene stock bajo (<= 3 unidades).
- *  - Bloquear el clic si el producto está totalmente agotado (RF11).
  *  - Si se añade soporte para fotos reales de producto, mostrar img con fallback al icono Package.
  */
+import { motion } from 'motion/react';
 import { formatCurrency } from '../../../shared/utils/formatters';
 import { Package, Plus, AlertTriangle } from 'lucide-react';
 
@@ -28,16 +29,20 @@ export const ProductGrid = ({ products, onSelectProduct }) => {
   }
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+    <div className="grid grid-cols-[repeat(auto-fill,minmax(155px,1fr))] gap-4">
       {products.map((p) => {
         const isOutOfStock = p.stock <= 0;
         const isLowStock = p.stock > 0 && p.stock <= 3;
 
         return (
-          <button
+          <motion.button
             key={p.id}
             type="button"
-            className={`group relative bg-white border rounded-xl p-4 text-left transition-all duration-150 flex flex-col justify-between cursor-pointer ${
+            layout
+            whileTap={!isOutOfStock ? { scale: 0.96 } : undefined}
+            whileHover={!isOutOfStock ? { y: -2 } : undefined}
+            transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+            className={`group relative bg-white border rounded-xl p-4 text-left flex flex-col justify-between cursor-pointer ${
               isOutOfStock
                 ? 'border-gray-200 opacity-60 cursor-not-allowed bg-gray-50'
                 : 'border-gray-200 hover:border-gray-900 hover:shadow-md'
@@ -45,22 +50,22 @@ export const ProductGrid = ({ products, onSelectProduct }) => {
             onClick={() => !isOutOfStock && onSelectProduct(p)}
             disabled={isOutOfStock}
           >
-            <div>
+            <div className="min-w-0">
               {/* Header de la tarjeta con categoría y stock badge */}
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
+              <div className="flex items-center gap-1.5 mb-2">
+                <span className="min-w-0 truncate text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
                   {p.category}
                 </span>
                 {isOutOfStock ? (
-                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-700">
+                  <span className="shrink-0 whitespace-nowrap text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-700 ml-auto">
                     Agotado
                   </span>
                 ) : isLowStock ? (
-                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 flex items-center gap-0.5">
+                  <span className="shrink-0 whitespace-nowrap text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 flex items-center gap-0.5 ml-auto">
                     <AlertTriangle size={10} /> {p.stock} disp.
                   </span>
                 ) : (
-                  <span className="text-[10px] font-medium text-gray-500">
+                  <span className="shrink-0 whitespace-nowrap text-[10px] font-medium text-gray-500 ml-auto">
                     {p.stock} disp.
                   </span>
                 )}
@@ -70,24 +75,24 @@ export const ProductGrid = ({ products, onSelectProduct }) => {
               <h4 className="text-sm font-semibold text-gray-900 leading-snug line-clamp-2 mb-1 group-hover:text-black">
                 {p.name}
               </h4>
-              <p className="text-xs font-mono text-gray-400 mb-3">
+              <p className="text-xs font-mono text-gray-400 mb-3 truncate">
                 SKU: {p.sku}
               </p>
             </div>
 
             {/* Precio y botón de agregar */}
-            <div className="flex items-center justify-between pt-3 border-t border-gray-100 mt-2">
-              <span className="text-base font-black text-gray-950">
+            <div className="flex items-center justify-between gap-2 pt-3 border-t border-gray-100 mt-2">
+              <span className="text-base font-black text-gray-950 truncate">
                 {formatCurrency(p.price)}
               </span>
 
               {!isOutOfStock && (
-                <span className="w-7 h-7 rounded-lg bg-gray-100 text-gray-700 flex items-center justify-center group-hover:bg-gray-900 group-hover:text-white transition-colors">
+                <span className="w-7 h-7 shrink-0 rounded-lg bg-gray-100 text-gray-700 flex items-center justify-center group-hover:bg-gray-900 group-hover:text-white transition-colors">
                   <Plus size={16} />
                 </span>
               )}
             </div>
-          </button>
+          </motion.button>
         );
       })}
     </div>

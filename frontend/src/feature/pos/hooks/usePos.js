@@ -6,31 +6,43 @@
  * validación de stock disponible y la búsqueda visual/por texto de productos.
  *
  * SOPORTE LECTOR CÓDIGO DE BARRAS (RF08):
- *  - Los escáneres USB funcionan en modo HID (Keyboard Wedge), emitiendo caracteres
- *    a gran velocidad seguidos de 'Enter'.
- *  - Este hook incluye el detector para agregar automáticamente el producto al ticket.
+ *  - Se usa @point-of-sale/keyboard-barcode-scanner en vez de un detector casero:
+ *    separa de forma confiable el tecleo de un lector USB HID (keyboard wedge) del
+ *    tecleo manual de un usuario, sin importar la marca/velocidad del lector.
  *
  * TODO Leo:
- *  - Probar con el lector físico USB en el mostrador para ajustar el umbral de detección (50ms).
+ *  - Probar con el lector físico USB en el mostrador (ver estado `scannerReady`).
  */
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { toast } from 'sonner';
+import { playSound } from 'react-sounds';
+import KeyboardBarcodeScanner from '@point-of-sale/keyboard-barcode-scanner';
+import { formatCurrency } from '../../../shared/utils/formatters';
 
 export const usePos = (catalog = []) => {
   const [cart, setCart] = useState([]);
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('ALL');
+  const [scannerReady, setScannerReady] = useState(false);
+  // Descuento manual del ticket: { type: 'PERCENT' | 'AMOUNT', value: number } o null
+  const [discount, setDiscount] = useState(null);
+  const catalogRef = useRef(catalog);
+  catalogRef.current = catalog;
 
   const addToCart = useCallback((product) => {
     if (product.stock <= 0) {
-      alert(`El producto "${product.name}" está agotado.`);
+      toast.error(`"${product.name}" está agotado.`);
+      playSound('notification/error', { volume: 0.4 });
       return;
     }
 
+    let added = true;
     setCart((prev) => {
       const existing = prev.find((item) => item.id === product.id);
       if (existing) {
         if (existing.quantity >= product.stock) {
-          alert(`No puedes agregar más: solo hay ${product.stock} unidades en stock.`);
+          toast.error(`Stock máximo: solo hay ${product.stock} unidades de "${product.name}".`);
+          added = false;
           return prev;
         }
         return prev.map((item) =>
@@ -39,6 +51,7 @@ export const usePos = (catalog = []) => {
       }
       return [...prev, { ...product, quantity: 1 }];
     });
+    playSound(added ? 'ui/item_select' : 'notification/warning', { volume: 0.4 });
   }, []);
 
   const updateQuantity = (productId, delta) => {
@@ -48,7 +61,8 @@ export const usePos = (catalog = []) => {
           if (item.id === productId) {
             const newQty = item.quantity + delta;
             if (newQty > item.stock) {
-              alert(`Stock máximo alcanzado (${item.stock} unidades)`);
+              toast.error(`Stock máximo alcanzado (${item.stock} unidades).`);
+              playSound('notification/warning', { volume: 0.4 });
               return item;
             }
             return newQty > 0 ? { ...item, quantity: newQty } : null;
@@ -65,55 +79,72 @@ export const usePos = (catalog = []) => {
 
   const clearCart = () => {
     setCart([]);
+    setDiscount(null);
   };
 
-  // RF08: Detección de escáner de código de barras USB (tecleo rápido + Enter)
+  // Descuento manual (RESPONSABLE: Leo — pendiente del plan original de POS)
+  const applyDiscount = (type, value) => {
+    const numValue = parseFloat(value);
+    if (Number.isNaN(numValue) || numValue <= 0) {
+      toast.error('Ingresa un valor de descuento válido.');
+      return false;
+    }
+    if (type === 'PERCENT' && numValue > 100) {
+      toast.error('El descuento no puede superar el 100%.');
+      return false;
+    }
+    setDiscount({ type, value: numValue });
+    toast.success(
+      type === 'PERCENT' ? `Descuento de ${numValue}% aplicado.` : `Descuento de ${formatCurrency(numValue)} aplicado.`
+    );
+    return true;
+  };
+
+  const clearDiscount = () => setDiscount(null);
+
+  // RF08: Lectura de código de barras vía escáner USB en modo HID (keyboard wedge)
   useEffect(() => {
-    let barcodeBuffer = '';
-    let lastKeyTime = Date.now();
+    const scanner = new KeyboardBarcodeScanner();
 
-    const handleKeyDown = (e) => {
-      // Ignorar si el usuario está escribiendo intencionalmente en un input o textarea
-      if (['INPUT', 'TEXTAREA'].includes(e.target.tagName)) {
-        return;
-      }
+    const handleConnected = () => setScannerReady(true);
+    const handleDisconnected = () => setScannerReady(false);
 
-      const currentTime = Date.now();
-      const timeDiff = currentTime - lastKeyTime;
-      lastKeyTime = currentTime;
+    const handleBarcode = (e) => {
+      const scannedCode = e.value?.trim();
+      if (!scannedCode) return;
 
-      // Si el intervalo entre teclas es mayor a 80ms, no es un escáner: reiniciar buffer
-      if (timeDiff > 80) {
-        barcodeBuffer = '';
-      }
+      const found = catalogRef.current.find(
+        (p) => p.barcode === scannedCode || p.sku.toLowerCase() === scannedCode.toLowerCase()
+      );
 
-      if (e.key === 'Enter') {
-        if (barcodeBuffer.length >= 4) {
-          const scannedCode = barcodeBuffer.trim();
-          console.log('[Scanner USB detectado]:', scannedCode);
-
-          // Buscar el producto en el catálogo en memoria
-          const found = catalog.find(
-            (p) => p.barcode === scannedCode || p.sku.toLowerCase() === scannedCode.toLowerCase()
-          );
-
-          if (found) {
-            addToCart(found);
-          } else {
-            console.warn('Producto no encontrado con el código escaneado:', scannedCode);
-          }
-        }
-        barcodeBuffer = '';
-      } else if (e.key.length === 1) {
-        barcodeBuffer += e.key;
+      if (found) {
+        addToCart(found);
+      } else {
+        toast.error(`Ningún producto coincide con el código "${scannedCode}".`);
+        playSound('notification/error', { volume: 0.4 });
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [catalog, addToCart]);
+    scanner.addEventListener('connected', handleConnected);
+    scanner.addEventListener('disconnected', handleDisconnected);
+    scanner.addEventListener('barcode', handleBarcode);
+    scanner.connect();
+
+    return () => {
+      scanner.disconnect();
+    };
+  }, [addToCart]);
 
   const subtotal = cart.reduce((acc, item) => acc + item.price * item.quantity, 0);
+
+  const discountAmount = !discount
+    ? 0
+    : Math.min(
+        subtotal,
+        discount.type === 'PERCENT' ? subtotal * (discount.value / 100) : discount.value
+      );
+
+  const total = subtotal - discountAmount;
 
   return {
     cart,
@@ -122,9 +153,15 @@ export const usePos = (catalog = []) => {
     removeFromCart,
     clearCart,
     subtotal,
+    discount,
+    discountAmount,
+    total,
+    applyDiscount,
+    clearDiscount,
     search,
     setSearch,
     selectedCategory,
     setSelectedCategory,
+    scannerReady,
   };
 };
