@@ -1,27 +1,9 @@
 package com.prisma.api.domain.entities;
 
 import jakarta.persistence.*;
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
+import java.util.Objects;
 
-/**
- * RESPONSABLE: Mauricio
- * MÓDULO: Inventario
- *
- * Entidad Product — pieza central del sistema. Representa cada artículo del catálogo.
- * Está relacionada con Category, Supplier, SaleDetail, OrderDetail y InventoryMovement.
- *
- * CAMPOS CLAVE:
- *  - sku: código corto visible para el personal (ej. "URB-001")
- *  - barcode: código EAN/UPC leído por el escáner USB (opcional — el POS funciona sin él)
- *  - costPrice: precio de compra al proveedor. REQUERIDO para calcular márgenes en Dashboard.
- *  - salePrice: precio de venta al público.
- *  - currentStock: stock en tiempo real. Se actualiza vía transacciones, nunca directamente.
- *  - minStockAlert: umbral de alerta de stock bajo (RF05).
- *
- * TODO Mauricio: Completar todos los campos indicados abajo.
- * TODO Mauricio: Relacionar con Category (@ManyToOne) y Supplier (@ManyToOne, nullable).
- */
 @Entity
 @Table(name = "products")
 public class Product {
@@ -30,38 +12,124 @@ public class Product {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // TODO Mauricio: String sku — NOT NULL, UNIQUE. Ej: "FEM-001"
-    // TODO Mauricio: String name — NOT NULL. Nombre del producto visible en POS
-    // TODO Mauricio: String description — nullable, descripción corta
-    // TODO Mauricio: String barcode — nullable (código EAN leído por scanner USB)
-    // TODO Mauricio: String imageUrl — URL de la foto del producto
-    // TODO Mauricio: BigDecimal costPrice — NOT NULL, precio de compra al proveedor
-    // TODO Mauricio: BigDecimal salePrice — NOT NULL, precio de venta al público
-    // TODO Mauricio: Integer currentStock — NOT NULL, default 0
-    // TODO Mauricio: Integer minStockAlert — NOT NULL, default 3
-    // TODO Mauricio: Boolean isActive — default true, para dar de baja sin borrar
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "category_id", nullable = false)
+    private Category category;
 
-    // @ManyToOne(fetch = FetchType.LAZY)
-    // @JoinColumn(name = "category_id", nullable = false)
-    // TODO Mauricio: private Category category;
+    @Column(name = "name", nullable = false, length = 150)
+    private String name;
 
-    // @ManyToOne(fetch = FetchType.LAZY)
-    // @JoinColumn(name = "supplier_id")
-    // TODO Mauricio: private Supplier supplier; (nullable — puede no tener proveedor aún)
+    @Column(name = "description", columnDefinition = "TEXT")
+    private String description;
 
-    private LocalDateTime createdAt;
-    private LocalDateTime updatedAt;
+    @Column(name = "image_url", columnDefinition = "TEXT")
+    private String imageUrl;
+
+    @Column(name = "is_active", nullable = false)
+    private boolean isActive = true;
+
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private Instant createdAt = Instant.now();
+
+    @Column(name = "updated_at", nullable = false)
+    private Instant updatedAt = Instant.now();
+
+    public Product() {
+    }
+
+    public Product(Category category, String name, String description, String imageUrl) {
+        this.category = category;
+        this.name = name;
+        this.description = description;
+        this.imageUrl = imageUrl;
+    }
 
     @PrePersist
     protected void onCreate() {
-        this.createdAt = LocalDateTime.now();
-        this.updatedAt = LocalDateTime.now();
+        if (this.createdAt == null) {
+            this.createdAt = Instant.now();
+        }
+        this.updatedAt = Instant.now();
     }
 
     @PreUpdate
     protected void onUpdate() {
-        this.updatedAt = LocalDateTime.now();
+        this.updatedAt = Instant.now();
     }
 
-    // TODO Mauricio: generar getters y setters, o agregar @Getter @Setter de Lombok
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public Category getCategory() {
+        return category;
+    }
+
+    public void setCategory(Category category) {
+        this.category = category;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
+    }
+
+    public String getImageUrl() {
+        return imageUrl;
+    }
+
+    public void setImageUrl(String imageUrl) {
+        this.imageUrl = imageUrl;
+    }
+
+    public boolean isActive() {
+        return isActive;
+    }
+
+    public void setActive(boolean active) {
+        isActive = active;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(Instant createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public Instant getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setUpdatedAt(Instant updatedAt) {
+        this.updatedAt = updatedAt;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof Product product)) return false;
+        return Objects.equals(id, product.id);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(id);
+    }
 }
