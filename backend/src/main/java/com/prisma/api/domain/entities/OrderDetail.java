@@ -2,17 +2,8 @@ package com.prisma.api.domain.entities;
 
 import jakarta.persistence.*;
 import java.math.BigDecimal;
+import java.util.Objects;
 
-/**
- * RESPONSABLE: Zully
- * MÓDULO: Pedidos
- *
- * Entidad OrderDetail — cada producto incluido en un pedido online.
- * Similar a SaleDetail, guarda el snapshot de costPrice para que los
- * cálculos de rentabilidad de Meli sean correctos históricamente.
- *
- * TODO Zully: Completar los campos indicados abajo.
- */
 @Entity
 @Table(name = "order_details")
 public class OrderDetail {
@@ -21,18 +12,91 @@ public class OrderDetail {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // @ManyToOne(fetch = FetchType.LAZY)
-    // @JoinColumn(name = "order_id", nullable = false)
-    // TODO Zully: private Order order;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "order_id", nullable = false)
+    private Order order;
 
-    // @ManyToOne(fetch = FetchType.LAZY)
-    // @JoinColumn(name = "product_id", nullable = false)
-    // TODO Zully: private Product product;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "variant_id", nullable = false)
+    private ProductVariant variant;
 
-    // TODO Zully: Integer quantity — NOT NULL, CHECK > 0
-    // TODO Zully: BigDecimal unitPrice — NOT NULL. Snapshot del precio de venta
-    // TODO Zully: BigDecimal unitCost — NOT NULL. Snapshot del costo de compra
-    // TODO Zully: BigDecimal subtotal — NOT NULL. = quantity * unitPrice
+    @Column(name = "quantity", nullable = false)
+    private Integer quantity;
 
-    // TODO Zully: generar getters y setters
+    @Column(name = "unit_price", nullable = false, precision = 12, scale = 2)
+    private BigDecimal unitPrice;
+
+    @Column(name = "unit_cost", precision = 14, scale = 4)
+    private BigDecimal unitCost;
+
+    public OrderDetail() {
+    }
+
+    public OrderDetail(Order order, ProductVariant variant, Integer quantity, BigDecimal unitPrice, BigDecimal unitCost) {
+        this.order = order;
+        this.variant = variant;
+        this.quantity = quantity;
+        this.unitPrice = unitPrice;
+        this.unitCost = unitCost;
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public Order getOrder() {
+        return order;
+    }
+
+    public void setOrder(Order order) {
+        this.order = order;
+    }
+
+    public ProductVariant getVariant() {
+        return variant;
+    }
+
+    public void setVariant(ProductVariant variant) {
+        this.variant = variant;
+    }
+
+    public Integer getQuantity() {
+        return quantity;
+    }
+
+    public void setQuantity(Integer quantity) {
+        this.quantity = quantity;
+    }
+
+    public BigDecimal getUnitPrice() {
+        return unitPrice;
+    }
+
+    public void setUnitPrice(BigDecimal unitPrice) {
+        this.unitPrice = unitPrice;
+    }
+
+    public BigDecimal getUnitCost() {
+        return unitCost;
+    }
+
+    public void setUnitCost(BigDecimal unitCost) {
+        this.unitCost = unitCost;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof OrderDetail that)) return false;
+        return Objects.equals(id, that.id);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(id);
+    }
 }
