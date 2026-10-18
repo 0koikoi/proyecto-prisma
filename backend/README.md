@@ -1,59 +1,49 @@
-# Tienda Prisma — Backend API (Spring Boot)
+# Tienda Prisma — Backend
 
-API REST centralizada para la plataforma de gestión de Tienda Prisma, construida con **Spring Boot 4.1**, **Java 25**, **Spring Data JPA** y conectada a **PostgreSQL 16**.
+API con Spring Boot 4.1.1, Java 25, Spring Data JPA, PostgreSQL, Flyway y autenticación JWT.
 
----
+## Funcionamiento
 
-## 1. Stack Tecnológico
+La solicitud pasa por controlador → servicio transaccional → repositorio JPA → PostgreSQL. Los controladores validan el JSON, los servicios aplican permisos y reglas, y Flyway versiona el esquema. Hibernate lo verifica mediante `ddl-auto=validate`.
 
-- **Lenguaje:** Java 25 (LTS)
-- **Framework:** Spring Boot 4.1.1
-- **Persistencia:** Spring Data JPA + Hibernate
-- **Base de Datos:** PostgreSQL 16 (Local Docker o Neon en la nube)
-- **Seguridad:** Spring Security + JWT (Planificado Sprint 6)
-- **Gestor de Dependencias:** Maven (vía `mvnw` / `mvnw.cmd`)
+El login `POST /api/auth/login` valida contraseña BCrypt y devuelve un JWT. Enviar `Authorization: Bearer <token>` en las operaciones protegidas. Catálogo e Inventario usan esa misma autenticación.
 
----
+## Módulos operativos
 
-## 2. Requisitos Previos y Ejecución
+| Área | Ruta base | Comportamiento |
+|---|---|---|
+| Autenticación | `/api/auth` | Login y consulta del usuario autenticado. |
+| Categorías | `/api/categories` | Alta, consulta, edición, desactivación y reactivación. |
+| Productos | `/api/products` | Datos generales, clasificación e imágenes mediante URL. |
+| Variantes | `/api/variants` | SKU, código de barras, talla/color, precios y disponibilidad. |
+| Inventario | `/api/inventory/movements` | Historial paginado, filtros, referencias y reversión de ajustes manuales. |
 
-Asegurarse de tener configurado `JAVA_HOME` apuntando al JDK 25:
+Consultar [el contrato de Catálogo e Inventario](./CATALOGO_INVENTARIO.md) para rutas completas, ejemplos y reglas de integración. La existencia de entidades de ventas, pedidos y compras no implica que sus operaciones HTTP estén implementadas.
+
+## Desarrollo
+
+Configurar un **JDK 25** y las variables de [.env.example](./.env.example). Usar credenciales de una base de desarrollo propia. No guardar `.env` en Git.
+
+Desde `backend/`:
 
 ```powershell
-# Definir JAVA_HOME temporalmente si no está en variables del sistema
-$env:JAVA_HOME = "C:\Program Files\Java\jdk-25.0.3"
-
-# Compilar el proyecto
 .\mvnw.cmd compile
-
-# Ejecutar las pruebas unitarias
-.\mvnw.cmd test
-
-# Iniciar la aplicación (puerto 8080)
 .\mvnw.cmd spring-boot:run
 ```
 
----
+El servidor utiliza el puerto 8080. El perfil `dev` obtiene su conexión de `DB_URL`, `DB_USER` y `DB_PASSWORD`; Flyway puede usar `DB_FLYWAY_URL`, `DB_FLYWAY_USER` y `DB_FLYWAY_PASSWORD` si requiere otra conexión. La firma JWT utiliza `JWT_SECRET`.
 
-## 3. Endpoints Principales
+**Arrancar el servidor aplica las migraciones pendientes sobre la base configurada.** V3 y V4 comprueban unicidad normalizada; los duplicados históricos deben conciliarse antes. Las migraciones no fusionan ni borran esos registros automáticamente.
 
-| Módulo | Endpoint Base | Responsable | Descripción |
-| :--- | :--- | :--- | :--- |
-| **Autenticación** | `/api/auth` | Keila | Login (`/login`) y perfil (`/me`) con JWT |
-| **Dashboard** | `/api/dashboard` | Keila | Métricas del día (`/summary`) y stock bajo (`/low-stock`) |
-| **Inventario** | `/api/products` | Mauricio | CRUD de productos y búsqueda rápida |
-| **Categorías** | `/api/categories` | Mauricio | Catálogo de categorías (Femenina, Urbana, Mascotas) |
-| **Punto de Venta** | `/api/sales` | Leo | Registro transaccional de ventas y descuento de stock |
-| **Caja** | `/api/cash-register` | Leo | Apertura (`/open`), cierre (`/close`) y arqueo |
-| **Pedidos** | `/api/orders` | Zully | Gestión de órdenes y cambio de estado (`/status`) |
-| **Proveedores** | `/api/suppliers` | Zully | Directorio de proveedores y compras (`/purchases`) |
-| **Finanzas** | `/api/finance` | Meli | Resumen financiero (`/summary`) y transacciones |
+## Pruebas aisladas
 
----
+```powershell
+.\mvnw.cmd clean test
+.\mvnw.cmd -DskipTests package
+```
 
-## 4. Configuración de Base de Datos
+La suite inicia PostgreSQL **17.11** desechable en un puerto local libre, aplica las migraciones y prueba la API con JWT obtenido mediante el login real. No necesita Docker ni credenciales de Neon. Maven descarga los binarios de prueba cuando faltan en caché.
 
-Las credenciales por defecto en `src/main/resources/application.properties` se sincronizan con `database/docker-compose.yml`:
-- **URL:** `jdbc:postgresql://localhost:5432/prisma_db`
-- **Usuario:** `prisma_user`
-- **Contraseña:** `prisma_password`
+`LocalPostgresTest` fija las conexiones JPA/Flyway a esa instancia, usa configuración exclusiva y comprueba la conexión antes de limpiar datos ficticios. Surefire excluye el cargador de `.env` del classpath de pruebas. Ejecutar mediante el wrapper de Maven para conservar ese aislamiento.
+
+La suite cubre permisos, validaciones, variantes, búsquedas, reservas, concurrencia, idempotencia, reversas y rollback de stock cuando falla el movimiento. Los tests son secuenciales salvo los escenarios concurrentes explícitos.
