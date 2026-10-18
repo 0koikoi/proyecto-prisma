@@ -48,4 +48,14 @@ public class OrderController {
         OrderResponse created = orderService.createOrder(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
+
+    // Cambiar estado del pedido (PREPARING, SHIPPED, DELIVERED, CANCELLED)
+    @PatchMapping("/{id}/status")
+    public ResponseEntity<OrderResponse> updateStatus(
+            @PathVariable Long id,
+            @Valid @RequestBody com.prisma.api.application.order.dto.UpdateOrderStatusRequest request
+    ) {
+        OrderResponse updated = orderService.updateOrderStatus(id, request);
+        return ResponseEntity.ok(updated);
+    }
 }

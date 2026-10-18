@@ -44,6 +44,15 @@ class OrderServiceTest {
     private ProductVariantRepository productVariantRepository;
 
     @Mock
+    private com.prisma.api.infrastructure.persistence.InventoryReservationRepository inventoryReservationRepository;
+
+    @Mock
+    private com.prisma.api.infrastructure.persistence.InventoryMovementRepository inventoryMovementRepository;
+
+    @Mock
+    private com.prisma.api.application.port.PaymentStatusPort paymentStatusPort;
+
+    @Mock
     private CurrentUserProvider currentUserProvider;
 
     @InjectMocks
@@ -174,5 +183,114 @@ class OrderServiceTest {
         BusinessRuleException ex = assertThrows(BusinessRuleException.class, () -> orderService.createOrder(request));
         assertEquals("VARIANT_NOT_FOUND", ex.getCode());
         verify(orderRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Transición PENDING -> PREPARING debe crear reserva ACTIVE si hay stock suficiente")
+    void transitionToPreparingSuccess() {
+        Order order = new Order("PED-2026-00001", sampleUser, OrderChannel.WHATSAPP, "Lucia Morales", "987654321", "Dir", "Ref", DeliveryScope.LOCAL, PaymentMethod.YAPE);
+        order.setId(1L);
+        order.setShippingStatus(ShippingStatus.PENDING);
+
+        OrderDetail detail = new OrderDetail(order, sampleVariant, 2, new BigDecimal("69.90"), new BigDecimal("35.00"));
+        detail.setId(10L);
+
+        when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+        when(currentUserProvider.getCurrentUser()).thenReturn(sampleUser);
+        when(orderDetailRepository.findByOrderIdWithVariant(1L)).thenReturn(List.of(detail));
+        when(inventoryReservationRepository.sumReservedQuantityByVariantIdAndStatus(100L, ReservationStatus.ACTIVE)).thenReturn(0);
+
+        com.prisma.api.application.order.dto.UpdateOrderStatusRequest req =
+                new com.prisma.api.application.order.dto.UpdateOrderStatusRequest(ShippingStatus.PREPARING, "Empaquetando pedido", null, null, null, null, null, null);
+
+        OrderResponse res = orderService.updateOrderStatus(1L, req);
+
+        assertNotNull(res);
+        assertEquals(ShippingStatus.PREPARING, order.getShippingStatus());
+        verify(inventoryReservationRepository).save(any(InventoryReservation.class));
+        verify(orderStatusHistoryRepository).save(any(OrderStatusHistory.class));
+    }
+
+    @Test
+    @DisplayName("Transición PREPARING -> SHIPPED nacional debe ser rechazada si el producto no está 100% pagado (RN06)")
+    void transitionToShippedNationalRequiresPayment() {
+        Order order = new Order("PED-2026-00002", sampleUser, OrderChannel.WHATSAPP, "Carlos Ruiz", "912345678", "Lima", "Ref", DeliveryScope.NATIONAL, PaymentMethod.YAPE);
+        order.setId(2L);
+        order.setShippingStatus(ShippingStatus.PREPARING);
+
+        OrderDetail detail = new OrderDetail(order, sampleVariant, 1, new BigDecimal("69.90"), new BigDecimal("35.00"));
+        detail.setId(20L);
+
+        when(orderRepository.findById(2L)).thenReturn(Optional.of(order));
+        when(currentUserProvider.getCurrentUser()).thenReturn(sampleUser);
+        when(orderDetailRepository.findByOrderIdWithVariant(2L)).thenReturn(List.of(detail));
+        when(paymentStatusPort.areProductsPaid(2L)).thenReturn(false); // No pagado
+
+        com.prisma.api.application.order.dto.UpdateOrderStatusRequest req =
+                new com.prisma.api.application.order.dto.UpdateOrderStatusRequest(ShippingStatus.SHIPPED, "Despachando agencia", "Shalom", "SH-1234", null, null, null, null);
+
+        BusinessRuleException ex = assertThrows(BusinessRuleException.class, () -> orderService.updateOrderStatus(2L, req));
+        assertEquals("NATIONAL_PAYMENT_REQUIRED", ex.getCode());
+        verify(inventoryMovementRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Transición PREPARING -> SHIPPED debe consumir reserva, descontar stock físico y registrar kardex")
+    void transitionToShippedSuccess() {
+        Order order = new Order("PED-2026-00003", sampleUser, OrderChannel.WHATSAPP, "Lucia Morales", "987654321", "Huánuco", "Ref", DeliveryScope.LOCAL, PaymentMethod.EFECTIVO);
+        order.setId(3L);
+        order.setShippingStatus(ShippingStatus.PREPARING);
+
+        OrderDetail detail = new OrderDetail(order, sampleVariant, 2, new BigDecimal("69.90"), new BigDecimal("35.00"));
+        detail.setId(30L);
+
+        InventoryReservation reservation = new InventoryReservation(detail, sampleUser);
+
+        when(orderRepository.findById(3L)).thenReturn(Optional.of(order));
+        when(currentUserProvider.getCurrentUser()).thenReturn(sampleUser);
+        when(orderDetailRepository.findByOrderIdWithVariant(3L)).thenReturn(List.of(detail));
+        when(inventoryReservationRepository.findById(30L)).thenReturn(Optional.of(reservation));
+
+        int stockAntes = sampleVariant.getCurrentStock(); // 10
+
+        com.prisma.api.application.order.dto.UpdateOrderStatusRequest req =
+                new com.prisma.api.application.order.dto.UpdateOrderStatusRequest(ShippingStatus.SHIPPED, "Despachando motorizado", "Motorizado Local", "Reparto Local", null, null, null, null);
+
+        OrderResponse res = orderService.updateOrderStatus(3L, req);
+
+        assertNotNull(res);
+        assertEquals(ShippingStatus.SHIPPED, order.getShippingStatus());
+        assertNotNull(order.getShippedAt());
+        assertEquals(ReservationStatus.CONSUMED, reservation.getStatus());
+        assertEquals(stockAntes - 2, sampleVariant.getCurrentStock()); // Descontado de 10 a 8
+        verify(inventoryMovementRepository).save(any(InventoryMovement.class));
+    }
+
+    @Test
+    @DisplayName("Transición PREPARING -> CANCELLED debe liberar reservas activas a RELEASED")
+    void transitionToCancelledReleasesReservations() {
+        Order order = new Order("PED-2026-00004", sampleUser, OrderChannel.WHATSAPP, "Lucia Morales", "987654321", "Huánuco", "Ref", DeliveryScope.LOCAL, PaymentMethod.EFECTIVO);
+        order.setId(4L);
+        order.setShippingStatus(ShippingStatus.PREPARING);
+
+        OrderDetail detail = new OrderDetail(order, sampleVariant, 1, new BigDecimal("69.90"), new BigDecimal("35.00"));
+        detail.setId(40L);
+
+        InventoryReservation reservation = new InventoryReservation(detail, sampleUser);
+
+        when(orderRepository.findById(4L)).thenReturn(Optional.of(order));
+        when(currentUserProvider.getCurrentUser()).thenReturn(sampleUser);
+        when(orderDetailRepository.findByOrderIdWithVariant(4L)).thenReturn(List.of(detail));
+        when(inventoryReservationRepository.findById(40L)).thenReturn(Optional.of(reservation));
+
+        com.prisma.api.application.order.dto.UpdateOrderStatusRequest req =
+                new com.prisma.api.application.order.dto.UpdateOrderStatusRequest(ShippingStatus.CANCELLED, "Cliente desistió de la compra", null, null, null, null, null, null);
+
+        OrderResponse res = orderService.updateOrderStatus(4L, req);
+
+        assertNotNull(res);
+        assertEquals(ShippingStatus.CANCELLED, order.getShippingStatus());
+        assertEquals(ReservationStatus.RELEASED, reservation.getStatus());
+        assertNotNull(reservation.getEndedAt());
     }
 }
