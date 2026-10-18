@@ -1,10 +1,16 @@
 package com.prisma.api.application.supplier;
 
+import com.prisma.api.application.supplier.dto.SupplierProductResponse;
 import com.prisma.api.application.supplier.dto.SupplierRequest;
 import com.prisma.api.application.supplier.dto.SupplierResponse;
+import com.prisma.api.domain.entities.Product;
 import com.prisma.api.domain.entities.Supplier;
+import com.prisma.api.domain.entities.SupplierProduct;
+import com.prisma.api.domain.entities.SupplierProductId;
 import com.prisma.api.domain.exceptions.BusinessRuleException;
 import com.prisma.api.domain.exceptions.ResourceNotFoundException;
+import com.prisma.api.infrastructure.persistence.ProductRepository;
+import com.prisma.api.infrastructure.persistence.SupplierProductRepository;
 import com.prisma.api.infrastructure.persistence.SupplierRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,9 +24,17 @@ import java.util.List;
 public class SupplierService {
 
     private final SupplierRepository supplierRepository;
+    private final SupplierProductRepository supplierProductRepository;
+    private final ProductRepository productRepository;
 
-    public SupplierService(SupplierRepository supplierRepository) {
+    public SupplierService(
+            SupplierRepository supplierRepository,
+            SupplierProductRepository supplierProductRepository,
+            ProductRepository productRepository
+    ) {
         this.supplierRepository = supplierRepository;
+        this.supplierProductRepository = supplierProductRepository;
+        this.productRepository = productRepository;
     }
 
     // Retorna todos los proveedores activos
@@ -95,6 +109,42 @@ public class SupplierService {
         Supplier supplier = findActiveById(id);
         supplier.setActive(false);
         supplierRepository.save(supplier);
+    }
+
+    // Lista los productos que abastece un proveedor
+    @Transactional(readOnly = true)
+    public List<SupplierProductResponse> getProductsBySupplier(Long supplierId) {
+        findActiveById(supplierId); // Verifica que el proveedor exista y este activo
+        return supplierProductRepository.findActiveBySupplierId(supplierId)
+                .stream()
+                .map(sp -> SupplierProductResponse.fromProduct(sp.getProduct()))
+                .toList();
+    }
+
+    // Vincula o reactiva un producto suministrado por el proveedor
+    @Transactional
+    public void linkProduct(Long supplierId, Long productId) {
+        Supplier supplier = findActiveById(supplierId);
+        Product product = productRepository.findByIdAndIsActiveTrue(productId)
+                .orElseThrow(() -> new ResourceNotFoundException("Producto", productId));
+
+        SupplierProductId key = new SupplierProductId(supplierId, productId);
+        SupplierProduct rel = supplierProductRepository.findById(key)
+                .orElseGet(() -> new SupplierProduct(supplier, product));
+
+        rel.setActive(true);
+        supplierProductRepository.save(rel);
+    }
+
+    // Desvincula logicamente un producto de un proveedor
+    @Transactional
+    public void unlinkProduct(Long supplierId, Long productId) {
+        findActiveById(supplierId);
+        SupplierProductId key = new SupplierProductId(supplierId, productId);
+        supplierProductRepository.findById(key).ifPresent(rel -> {
+            rel.setActive(false);
+            supplierProductRepository.save(rel);
+        });
     }
 
     // Busca la entidad activa o lanza excepcion amigable

@@ -60,4 +60,32 @@ public class SupplierController {
         supplierService.deactivate(id);
         return ResponseEntity.noContent().build();
     }
+
+    // Listar productos abastecidos por el proveedor
+    @GetMapping("/{id}/products")
+    public ResponseEntity<List<com.prisma.api.application.supplier.dto.SupplierProductResponse>> getProducts(
+            @PathVariable Long id
+    ) {
+        return ResponseEntity.ok(supplierService.getProductsBySupplier(id));
+    }
+
+    // Asociar producto al proveedor
+    @PutMapping("/{id}/products/{productId}")
+    public ResponseEntity<Void> linkProduct(
+            @PathVariable Long id,
+            @PathVariable Long productId
+    ) {
+        supplierService.linkProduct(id, productId);
+        return ResponseEntity.noContent().build();
+    }
+
+    // Desvincular producto del proveedor
+    @DeleteMapping("/{id}/products/{productId}")
+    public ResponseEntity<Void> unlinkProduct(
+            @PathVariable Long id,
+            @PathVariable Long productId
+    ) {
+        supplierService.unlinkProduct(id, productId);
+        return ResponseEntity.noContent().build();
+    }
 }

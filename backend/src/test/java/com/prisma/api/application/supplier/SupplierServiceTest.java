@@ -5,6 +5,8 @@ import com.prisma.api.application.supplier.dto.SupplierResponse;
 import com.prisma.api.domain.entities.Supplier;
 import com.prisma.api.domain.exceptions.BusinessRuleException;
 import com.prisma.api.domain.exceptions.ResourceNotFoundException;
+import com.prisma.api.infrastructure.persistence.ProductRepository;
+import com.prisma.api.infrastructure.persistence.SupplierProductRepository;
 import com.prisma.api.infrastructure.persistence.SupplierRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -26,6 +28,12 @@ class SupplierServiceTest {
 
     @Mock
     private SupplierRepository supplierRepository;
+
+    @Mock
+    private SupplierProductRepository supplierProductRepository;
+
+    @Mock
+    private ProductRepository productRepository;
 
     @InjectMocks
     private SupplierService supplierService;
@@ -152,5 +160,54 @@ class SupplierServiceTest {
 
         assertFalse(sampleSupplier.isActive());
         verify(supplierRepository).save(sampleSupplier);
+    }
+
+    @Test
+    @DisplayName("Debe vincular un producto al proveedor exitosamente")
+    void linkProductSuccess() {
+        com.prisma.api.domain.entities.Category cat = new com.prisma.api.domain.entities.Category("Ropa Urbana", "Desc");
+        com.prisma.api.domain.entities.Product prod = new com.prisma.api.domain.entities.Product(cat, "Polera Oversize", "Desc", null);
+        prod.setId(10L);
+
+        when(supplierRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(sampleSupplier));
+        when(productRepository.findByIdAndIsActiveTrue(10L)).thenReturn(Optional.of(prod));
+        when(supplierProductRepository.findById(any())).thenReturn(Optional.empty());
+
+        supplierService.linkProduct(1L, 10L);
+
+        verify(supplierProductRepository).save(any(com.prisma.api.domain.entities.SupplierProduct.class));
+    }
+
+    @Test
+    @DisplayName("Debe listar productos abastecidos por un proveedor")
+    void getProductsBySupplierSuccess() {
+        com.prisma.api.domain.entities.Category cat = new com.prisma.api.domain.entities.Category("Ropa Urbana", "Desc");
+        com.prisma.api.domain.entities.Product prod = new com.prisma.api.domain.entities.Product(cat, "Polera Oversize", "Desc", null);
+        prod.setId(10L);
+        com.prisma.api.domain.entities.SupplierProduct sp = new com.prisma.api.domain.entities.SupplierProduct(sampleSupplier, prod);
+
+        when(supplierRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(sampleSupplier));
+        when(supplierProductRepository.findActiveBySupplierId(1L)).thenReturn(List.of(sp));
+
+        List<com.prisma.api.application.supplier.dto.SupplierProductResponse> result = supplierService.getProductsBySupplier(1L);
+
+        assertEquals(1, result.size());
+        assertEquals("Polera Oversize", result.get(0).productName());
+    }
+
+    @Test
+    @DisplayName("Debe desvincular un producto del proveedor")
+    void unlinkProductSuccess() {
+        com.prisma.api.domain.entities.SupplierProductId key = new com.prisma.api.domain.entities.SupplierProductId(1L, 10L);
+        com.prisma.api.domain.entities.SupplierProduct sp = new com.prisma.api.domain.entities.SupplierProduct();
+        sp.setActive(true);
+
+        when(supplierRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(sampleSupplier));
+        when(supplierProductRepository.findById(key)).thenReturn(Optional.of(sp));
+
+        supplierService.unlinkProduct(1L, 10L);
+
+        assertFalse(sp.isActive());
+        verify(supplierProductRepository).save(sp);
     }
 }
