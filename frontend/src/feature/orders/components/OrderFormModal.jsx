@@ -1,5 +1,6 @@
 /**
  * Modal para registrar pedidos manuales ingresados por WhatsApp, Messenger o Web.
+ * Conectado con los contratos y restricciones de la base de datos Neon.
  * Responsable: Zully
  */
 import { useState, useEffect } from 'react';
@@ -25,23 +26,26 @@ export const OrderFormModal = ({ isOpen, onClose, onSave }) => {
   const [productsCatalog, setProductsCatalog] = useState([]);
   const [customerName, setCustomerName] = useState('');
   const [phone, setPhone] = useState('');
-  const [channel, setChannel] = useState('WhatsApp');
+  const [channel, setChannel] = useState('WHATSAPP');
   const [shippingAddress, setShippingAddress] = useState('');
   const [reference, setReference] = useState('');
-  const [courier, setCourier] = useState('Shalom');
+  const [deliveryScope, setDeliveryScope] = useState('LOCAL');
+  const [courierCompany, setCourierCompany] = useState('Motorizado Local');
   const [trackingNumber, setTrackingNumber] = useState('');
-  const [carPlate, setCarPlate] = useState('');
+  const [driverName, setDriverName] = useState('');
   const [driverPhone, setDriverPhone] = useState('');
+  const [vehiclePlate, setVehiclePlate] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('YAPE');
-  const [shippingCost, setShippingCost] = useState(10.0);
+  const [shippingCost, setShippingCost] = useState(6.0);
+  const [notes, setNotes] = useState('');
   const [items, setItems] = useState([]);
 
-  // Selector de producto temporal
+  // Selector de producto
   const [selectedProductId, setSelectedProductId] = useState('');
   const [selectedQty, setSelectedQty] = useState(1);
   const [errorMsg, setErrorMsg] = useState('');
 
-  // Cargar catálogo de productos para el selector
+  // Cargar catálogo de productos
   useEffect(() => {
     if (isOpen) {
       inventoryService.getProducts().then((prods) => {
@@ -50,29 +54,45 @@ export const OrderFormModal = ({ isOpen, onClose, onSave }) => {
           setSelectedProductId(prods[0].id.toString());
         }
       });
+
       // Limpiar formulario al abrir
       setCustomerName('');
       setPhone('');
-      setChannel('WhatsApp');
+      setChannel('WHATSAPP');
       setShippingAddress('');
       setReference('');
-      setCourier('Shalom');
+      setDeliveryScope('LOCAL');
+      setCourierCompany('Motorizado Local');
       setTrackingNumber('');
-      setCarPlate('');
+      setDriverName('');
       setDriverPhone('');
+      setVehiclePlate('');
       setPaymentMethod('YAPE');
-      setShippingCost(10.0);
+      setShippingCost(6.0);
+      setNotes('');
       setItems([]);
       setSelectedQty(1);
       setErrorMsg('');
     }
   }, [isOpen]);
 
-  // Actualizar costo sugerido según courier
+  // Actualizar ámbito y courier sugerido
+  const handleScopeChange = (scope) => {
+    setDeliveryScope(scope);
+    if (scope === 'NATIONAL') {
+      setCourierCompany('Shalom');
+      setShippingCost(12.0);
+    } else {
+      setCourierCompany('Motorizado Local');
+      setShippingCost(6.0);
+    }
+  };
+
   const handleCourierChange = (e) => {
     const val = e.target.value;
-    setCourier(val);
+    setCourierCompany(val);
     if (val === 'Shalom') setShippingCost(12.0);
+    else if (val === 'Olva Courier') setShippingCost(15.0);
     else if (val === 'Comité 6') setShippingCost(15.0);
     else if (val === 'Motorizado Local') setShippingCost(6.0);
     else setShippingCost(0.0);
@@ -85,7 +105,6 @@ export const OrderFormModal = ({ isOpen, onClose, onSave }) => {
     const qty = parseInt(selectedQty, 10);
     if (isNaN(qty) || qty <= 0) return;
 
-    // Verificar si ya está en la lista
     const existingIndex = items.findIndex((it) => it.productId === prod.id);
     if (existingIndex >= 0) {
       const updated = [...items];
@@ -98,11 +117,12 @@ export const OrderFormModal = ({ isOpen, onClose, onSave }) => {
         ...items,
         {
           productId: prod.id,
+          // Mapeamos temporalmente variantId al id del producto hasta que Mauricio publique sus variantes
+          variantId: prod.id,
           productName: prod.name,
           sku: prod.sku,
           quantity: qty,
           price: prod.price,
-          costPrice: prod.costPrice || 0,
           subtotal: Number((qty * prod.price).toFixed(2)),
         },
       ]);
@@ -131,36 +151,39 @@ export const OrderFormModal = ({ isOpen, onClose, onSave }) => {
       setErrorMsg('La dirección de entrega es obligatoria');
       return;
     }
+    if (!reference.trim()) {
+      setErrorMsg('La referencia de ubicación es obligatoria para el despacho');
+      return;
+    }
     if (items.length === 0) {
       setErrorMsg('Debe agregar al menos un producto al pedido');
       return;
     }
 
-    // Resolver tracking según courier
-    let finalTracking = trackingNumber.trim();
-    if (courier === 'Comité 6') {
-      finalTracking = `Placa: ${carPlate.trim() || 'S/N'} - Chofer: ${driverPhone.trim() || 'S/N'}`;
-    } else if (courier === 'Motorizado Local') {
-      finalTracking = 'Reparto Express Local';
-    }
-
-    const newOrderData = {
-      customerName: customerName.trim(),
-      phone: phone.trim(),
+    // Payload formal para backend Spring Boot /api/orders
+    const newOrderPayload = {
+      requestKey: crypto.randomUUID ? crypto.randomUUID() : null,
       channel,
+      customerName: customerName.trim(),
+      customerPhone: phone.trim(),
       shippingAddress: shippingAddress.trim(),
       reference: reference.trim(),
-      courier,
-      trackingNumber: finalTracking || '-',
-      paymentMethod,
+      deliveryScope,
+      requestedPaymentMethod: paymentMethod,
       shippingCost: Number(shippingCost || 0),
-      totalProducts,
-      total: totalOrder,
-      items,
-      notes: reference.trim(),
+      courierCompany: courierCompany.trim() || null,
+      trackingNumber: trackingNumber.trim() || null,
+      driverName: driverName.trim() || null,
+      driverPhone: driverPhone.trim() || null,
+      vehiclePlate: vehiclePlate.trim() || null,
+      notes: notes.trim() || null,
+      items: items.map((it) => ({
+        variantId: it.variantId,
+        quantity: it.quantity,
+      })),
     };
 
-    onSave(newOrderData);
+    onSave(newOrderPayload);
   };
 
   return (
@@ -192,9 +215,10 @@ export const OrderFormModal = ({ isOpen, onClose, onSave }) => {
                 onChange={(e) => setChannel(e.target.value)}
                 className="input-element cursor-pointer"
               >
-                <option value="WhatsApp">WhatsApp</option>
-                <option value="Messenger">Messenger</option>
-                <option value="Tienda Online">Tienda Online</option>
+                <option value="WHATSAPP">WhatsApp</option>
+                <option value="MESSENGER">Messenger</option>
+                <option value="INSTAGRAM">Instagram</option>
+                <option value="TIENDA_ONLINE">Tienda Online</option>
               </select>
             </div>
           </div>
@@ -202,7 +226,7 @@ export const OrderFormModal = ({ isOpen, onClose, onSave }) => {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Input
-            label="Teléfono / WhatsApp"
+            label="Teléfono / Celular"
             placeholder="Ej: 987654321"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
@@ -210,7 +234,7 @@ export const OrderFormModal = ({ isOpen, onClose, onSave }) => {
             required
           />
           <Input
-            label="Dirección de Entrega"
+            label="Dirección Exacta de Entrega"
             placeholder="Ej: Jr. Dos de Mayo 450, Huánuco"
             value={shippingAddress}
             onChange={(e) => setShippingAddress(e.target.value)}
@@ -220,33 +244,69 @@ export const OrderFormModal = ({ isOpen, onClose, onSave }) => {
         </div>
 
         <Input
-          label="Referencia de Ubicación"
+          label="Referencia de Ubicación (Requerido para repartidor)"
           placeholder="Ej: Frente al parque infantil / Puerta de rejas blancas"
           value={reference}
           onChange={(e) => setReference(e.target.value)}
           icon={Navigation}
+          required
         />
 
-        {/* Courier y Envíos */}
+        {/* Ámbito y Courier */}
         <div className="p-3.5 rounded-xl bg-gray-50 border border-gray-200 space-y-3">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold uppercase tracking-wider text-gray-700 flex items-center gap-1.5">
-              <Truck size={14} /> Logística de Envío
+              <Truck size={14} /> Logística y Ámbito de Despacho
             </span>
+
+            {/* Selector LOCAL vs NATIONAL */}
+            <div className="inline-flex rounded-lg border border-gray-300 p-0.5 bg-white">
+              <button
+                type="button"
+                onClick={() => handleScopeChange('LOCAL')}
+                className={`px-2.5 py-1 text-xs font-bold rounded-md transition-all ${
+                  deliveryScope === 'LOCAL'
+                    ? 'bg-gray-900 text-white shadow-xs'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                Local (Huánuco)
+              </button>
+              <button
+                type="button"
+                onClick={() => handleScopeChange('NATIONAL')}
+                className={`px-2.5 py-1 text-xs font-bold rounded-md transition-all ${
+                  deliveryScope === 'NATIONAL'
+                    ? 'bg-gray-900 text-white shadow-xs'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                Nacional (Provincias)
+              </button>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="input-label">Empresa / Courier</label>
+              <label className="input-label">Empresa / Modalidad de Envío</label>
               <div className="input-wrapper">
                 <select
-                  value={courier}
+                  value={courierCompany}
                   onChange={handleCourierChange}
                   className="input-element cursor-pointer"
                 >
-                  <option value="Shalom">Shalom (Nacional / Interprovincial)</option>
-                  <option value="Comité 6">Comité 6 (Autos Regionales)</option>
-                  <option value="Motorizado Local">Motorizado Local (Huánuco / Pillco Marca)</option>
+                  {deliveryScope === 'LOCAL' ? (
+                    <>
+                      <option value="Motorizado Local">Motorizado Local (Huánuco / Amarilis / Pillco Marca)</option>
+                      <option value="Recojo en Tienda">Recojo en Tienda Física</option>
+                    </>
+                  ) : (
+                    <>
+                      <option value="Shalom">Shalom (Agencia Nacional)</option>
+                      <option value="Olva Courier">Olva Courier (A Domicilio / Agencia)</option>
+                      <option value="Comité 6">Comité 6 (Colectivo Interprovincial)</option>
+                    </>
+                  )}
                 </select>
               </div>
             </div>
@@ -264,10 +324,10 @@ export const OrderFormModal = ({ isOpen, onClose, onSave }) => {
             </div>
           </div>
 
-          {/* Campos específicos por Courier */}
-          {courier === 'Shalom' && (
+          {/* Campos dinámicos según Courier */}
+          {(courierCompany === 'Shalom' || courierCompany === 'Olva Courier') && (
             <Input
-              label="N° de Guía de Remisión Shalom"
+              label="N° de Guía o Clave de Envío"
               placeholder="Ej: SH-884210"
               value={trackingNumber}
               onChange={(e) => setTrackingNumber(e.target.value)}
@@ -275,21 +335,28 @@ export const OrderFormModal = ({ isOpen, onClose, onSave }) => {
             />
           )}
 
-          {courier === 'Comité 6' && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {courierCompany === 'Comité 6' && (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               <Input
-                label="Placa del Vehículo"
-                placeholder="Ej: ABC-123"
-                value={carPlate}
-                onChange={(e) => setCarPlate(e.target.value)}
-                icon={Car}
+                label="Nombre Chofer"
+                placeholder="Ej: Juan Pérez"
+                value={driverName}
+                onChange={(e) => setDriverName(e.target.value)}
+                icon={User}
               />
               <Input
-                label="Teléfono del Conductor"
+                label="Celular Chofer"
                 placeholder="Ej: 962112233"
                 value={driverPhone}
                 onChange={(e) => setDriverPhone(e.target.value)}
                 icon={Phone}
+              />
+              <Input
+                label="Placa Auto"
+                placeholder="Ej: ABC-123"
+                value={vehiclePlate}
+                onChange={(e) => setVehiclePlate(e.target.value)}
+                icon={Car}
               />
             </div>
           )}
@@ -298,7 +365,7 @@ export const OrderFormModal = ({ isOpen, onClose, onSave }) => {
         {/* Selección de Productos */}
         <div className="p-3.5 rounded-xl border border-gray-200 space-y-3">
           <label className="text-xs font-bold uppercase tracking-wider text-gray-700 block">
-            Productos del Pedido
+            Productos Solicitados
           </label>
           <div className="flex gap-2">
             <select
@@ -308,7 +375,7 @@ export const OrderFormModal = ({ isOpen, onClose, onSave }) => {
             >
               {productsCatalog.map((p) => (
                 <option key={p.id} value={p.id}>
-                  {p.name} — {formatCurrency(p.price)} (Stock: {p.stock})
+                  {p.name} — {formatCurrency(p.price)} (Stock: {p.stock || p.currentStock || 0})
                 </option>
               ))}
             </select>
@@ -323,6 +390,7 @@ export const OrderFormModal = ({ isOpen, onClose, onSave }) => {
               variant="secondary"
               size="sm"
               icon={Plus}
+              type="button"
               onClick={handleAddItem}
             >
               Agregar
@@ -344,7 +412,7 @@ export const OrderFormModal = ({ isOpen, onClose, onSave }) => {
                   <button
                     type="button"
                     onClick={() => handleRemoveItem(idx)}
-                    className="text-gray-400 hover:text-red-500 p-1"
+                    className="text-gray-400 hover:text-red-500 p-1 cursor-pointer"
                     title="Quitar"
                   >
                     <Trash2 size={13} />
@@ -358,7 +426,7 @@ export const OrderFormModal = ({ isOpen, onClose, onSave }) => {
             </p>
           )}
 
-          {/* Método de pago y resumen de totales */}
+          {/* Método de pago y totales */}
           <div className="pt-2 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-3">
             <div className="flex items-center gap-2 w-full sm:w-auto">
               <label className="text-xs font-medium text-gray-600">Medio de Pago:</label>
@@ -369,8 +437,8 @@ export const OrderFormModal = ({ isOpen, onClose, onSave }) => {
               >
                 <option value="YAPE">Yape</option>
                 <option value="PLIN">Plin</option>
-                <option value="TRANSFERENCIA">Transferencia</option>
-                <option value="CONTRAENTREGA">Contraentrega (Efectivo)</option>
+                <option value="EFECTIVO">Efectivo / Contraentrega</option>
+                <option value="TARJETA">Tarjeta</option>
               </select>
             </div>
 
@@ -387,7 +455,7 @@ export const OrderFormModal = ({ isOpen, onClose, onSave }) => {
 
         {/* Botones de acción */}
         <div className="flex justify-end gap-2 pt-2">
-          <Button variant="secondary" onClick={onClose}>
+          <Button variant="secondary" type="button" onClick={onClose}>
             Cancelar
           </Button>
           <Button variant="primary" type="submit">

@@ -6,16 +6,17 @@ import { useState, useEffect } from 'react';
 import { Modal } from '../../../shared/components/Modal';
 import { Button } from '../../../shared/components/Button';
 import { Input } from '../../../shared/components/Input';
-import { Building2, User, Phone, Mail, FileText, MapPin, Tag } from 'lucide-react';
+import { Building2, User, Phone, Mail, FileText, MapPin } from 'lucide-react';
 
 export const SupplierFormModal = ({ isOpen, onClose, onSave, supplierToEdit }) => {
   const [companyName, setCompanyName] = useState('');
   const [contactName, setContactName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
+  const [taxIdType, setTaxIdType] = useState('RUC');
   const [taxId, setTaxId] = useState('');
   const [address, setAddress] = useState('');
-  const [productsSupplied, setProductsSupplied] = useState('');
+  const [notes, setNotes] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
 
   useEffect(() => {
@@ -25,17 +26,19 @@ export const SupplierFormModal = ({ isOpen, onClose, onSave, supplierToEdit }) =
         setContactName(supplierToEdit.contactName || '');
         setPhone(supplierToEdit.phone || '');
         setEmail(supplierToEdit.email || '');
+        setTaxIdType(supplierToEdit.taxIdType || 'RUC');
         setTaxId(supplierToEdit.taxId || '');
         setAddress(supplierToEdit.address || '');
-        setProductsSupplied(supplierToEdit.productsSupplied || '');
+        setNotes(supplierToEdit.notes || '');
       } else {
         setCompanyName('');
         setContactName('');
         setPhone('');
         setEmail('');
+        setTaxIdType('RUC');
         setTaxId('');
         setAddress('');
-        setProductsSupplied('');
+        setNotes('');
       }
       setErrorMsg('');
     }
@@ -52,15 +55,18 @@ export const SupplierFormModal = ({ isOpen, onClose, onSave, supplierToEdit }) =
       return;
     }
 
+    const hasTaxId = taxId.trim().length > 0;
+
     const supplierData = {
       ...(supplierToEdit ? { id: supplierToEdit.id } : {}),
       companyName: companyName.trim(),
-      contactName: contactName.trim(),
+      contactName: contactName.trim() || null,
       phone: phone.trim(),
-      email: email.trim(),
-      taxId: taxId.trim(),
-      address: address.trim(),
-      productsSupplied: productsSupplied.trim(),
+      email: email.trim() || null,
+      taxIdType: hasTaxId ? taxIdType : null,
+      taxId: hasTaxId ? taxId.trim() : null,
+      address: address.trim() || null,
+      notes: notes.trim() || null,
     };
 
     onSave(supplierData);
@@ -97,13 +103,28 @@ export const SupplierFormModal = ({ isOpen, onClose, onSave, supplierToEdit }) =
             onChange={(e) => setContactName(e.target.value)}
             icon={User}
           />
-          <Input
-            label="RUC / DNI"
-            placeholder="Ej: 20601234567"
-            value={taxId}
-            onChange={(e) => setTaxId(e.target.value)}
-            icon={FileText}
-          />
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 mb-1">
+              Documento (RUC / DNI)
+            </label>
+            <div className="flex gap-1.5">
+              <select
+                value={taxIdType}
+                onChange={(e) => setTaxIdType(e.target.value)}
+                className="w-24 px-2.5 py-2 text-xs font-semibold bg-gray-50 border border-gray-300 rounded-lg text-gray-700 outline-none focus:ring-2 focus:ring-gray-900"
+              >
+                <option value="RUC">RUC</option>
+                <option value="DNI">DNI</option>
+              </select>
+              <input
+                type="text"
+                placeholder="20601234567"
+                value={taxId}
+                onChange={(e) => setTaxId(e.target.value)}
+                className="flex-1 px-3 py-2 text-xs bg-white border border-gray-300 rounded-lg text-gray-900 outline-none focus:ring-2 focus:ring-gray-900"
+              />
+            </div>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -118,7 +139,7 @@ export const SupplierFormModal = ({ isOpen, onClose, onSave, supplierToEdit }) =
           <Input
             label="Correo Electrónico"
             type="email"
-            placeholder="Ej: contacto@taller.pe"
+            placeholder="contacto@textiles.pe"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             icon={Mail}
@@ -126,27 +147,32 @@ export const SupplierFormModal = ({ isOpen, onClose, onSave, supplierToEdit }) =
         </div>
 
         <Input
-          label="Dirección / Galería / Stand"
-          placeholder="Ej: Jr. Gamarra 1240, Piso 3, Stand 305, La Victoria, Lima"
+          label="Dirección Física / Stand"
+          placeholder="Ej: Jr. Gamarra 1240, Galería La Virreyna Stand 305, Lima"
           value={address}
           onChange={(e) => setAddress(e.target.value)}
           icon={MapPin}
         />
 
-        <Input
-          label="Línea de Suministro / Especialidad"
-          placeholder="Ej: Ropa Urbana y Juvenil Femenina / Telas / Accesorios pet"
-          value={productsSupplied}
-          onChange={(e) => setProductsSupplied(e.target.value)}
-          icon={Tag}
-        />
+        <div>
+          <label className="block text-xs font-semibold text-gray-700 mb-1">
+            Notas u Observaciones
+          </label>
+          <textarea
+            placeholder="Condiciones de pago, tiempo de entrega o detalles de confección..."
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            rows={2}
+            className="w-full px-3 py-2 text-xs border border-gray-300 rounded-lg text-gray-800 outline-none focus:ring-2 focus:ring-gray-900"
+          />
+        </div>
 
         <div className="flex justify-end gap-2 pt-2 border-t border-gray-100">
-          <Button variant="secondary" onClick={onClose}>
+          <Button variant="secondary" type="button" onClick={onClose}>
             Cancelar
           </Button>
           <Button variant="primary" type="submit">
-            {supplierToEdit ? 'Actualizar Proveedor' : 'Guardar Proveedor'}
+            {supplierToEdit ? 'Guardar Cambios' : 'Registrar Proveedor'}
           </Button>
         </div>
       </form>
