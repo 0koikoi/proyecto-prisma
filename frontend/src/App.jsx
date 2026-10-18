@@ -18,6 +18,7 @@ import { ROUTES } from './shared/constants/routes';
 
 // Páginas
 import { LoginPage }           from './feature/auth/LoginPage';
+import { PasswordChangePage }  from './feature/auth/PasswordChangePage';
 import { DashboardPage }       from './feature/dashboard/DashboardPage';
 import { InventoryPage }       from './feature/inventory/InventoryPage';
 import { PosPage }             from './feature/pos/PosPage';
@@ -38,6 +39,7 @@ function App() {
 
           {/* Protegidas — requieren autenticación */}
           <Route element={<ProtectedRoute />}>
+            <Route path={ROUTES.PASSWORD_CHANGE} element={<PasswordChangePage />} />
             <Route element={<MainLayout />}>
               <Route path={ROUTES.DASHBOARD}         element={<DashboardPage />} />
               <Route path={ROUTES.INVENTORY}         element={<InventoryPage />} />

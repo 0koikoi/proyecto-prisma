@@ -1,6 +1,6 @@
 # Tienda Prisma — Backend API (Spring Boot)
 
-API REST centralizada para la plataforma de gestión de Tienda Prisma, construida con **Spring Boot 4.1**, **Java 25**, **Spring Data JPA** y conectada a **PostgreSQL 16**.
+API REST centralizada para la plataforma de gestión de Tienda Prisma, construida con **Spring Boot 4.1**, **Java 25**, **Spring Data JPA** y conectada a **PostgreSQL 17**.
 
 ---
 
@@ -9,8 +9,8 @@ API REST centralizada para la plataforma de gestión de Tienda Prisma, construid
 - **Lenguaje:** Java 25 (LTS)
 - **Framework:** Spring Boot 4.1.1
 - **Persistencia:** Spring Data JPA + Hibernate
-- **Base de Datos:** PostgreSQL 16 (Local Docker o Neon en la nube)
-- **Seguridad:** Spring Security + JWT (Planificado Sprint 6)
+- **Base de Datos:** PostgreSQL 17 (Neon)
+- **Seguridad:** Spring Security, contraseñas BCrypt y JWT
 - **Gestor de Dependencias:** Maven (vía `mvnw` / `mvnw.cmd`)
 
 ---
@@ -33,9 +33,34 @@ $env:JAVA_HOME = "C:\Program Files\Java\jdk-25.0.3"
 .\mvnw.cmd spring-boot:run
 ```
 
+Antes de iniciar, copia `.env.example` a `.env` y configura `DB_URL`, `DB_USER`,
+`DB_PASSWORD` y un `JWT_SECRET` aleatorio de al menos 32 bytes. `DB_FLYWAY_URL`
+es opcional y se usa cuando las migraciones necesitan una conexión directa distinta.
+El frontend debe apuntar a `http://localhost:8080/api` mediante `VITE_API_URL`.
+En PowerShell puedes generar un secreto con:
+
+```powershell
+[Convert]::ToBase64String([Security.Cryptography.RandomNumberGenerator]::GetBytes(48))
+```
+
+La migración inicial crea la cuenta `admin` con contraseña temporal `admin123`;
+cámbiala en el primer acceso. Tras 3 intentos fallidos consecutivos, la cuenta
+queda bloqueada por 10 minutos. Un inicio correcto reinicia el contador.
+
+## 3. Autenticación
+
+- `POST /api/auth/login`: acepta `{ "username": "...", "password": "..." }` y devuelve
+  un token JWT y el perfil público del usuario activo.
+- `GET /api/auth/me`: devuelve el perfil asociado a un JWT válido enviado como
+  JWT en el encabezado HTTP `Authorization`.
+- `POST /api/auth/change-password`: actualiza la contraseña autenticada y devuelve
+  un JWT renovado. Las claves deben tener al menos 8 caracteres, una mayúscula,
+  un número y un símbolo.
+- No existe registro público. Las cuentas se gestionan mediante la base de datos.
+
 ---
 
-## 3. Endpoints Principales
+## 4. Endpoints Principales
 
 | Módulo | Endpoint Base | Responsable | Descripción |
 | :--- | :--- | :--- | :--- |
@@ -51,9 +76,9 @@ $env:JAVA_HOME = "C:\Program Files\Java\jdk-25.0.3"
 
 ---
 
-## 4. Configuración de Base de Datos
+## 5. Configuración de Base de Datos
 
-Las credenciales por defecto en `src/main/resources/application.properties` se sincronizan con `database/docker-compose.yml`:
-- **URL:** `jdbc:postgresql://localhost:5432/prisma_db`
-- **Usuario:** `prisma_user`
-- **Contraseña:** `prisma_password`
+La conexión no tiene credenciales por defecto. El perfil `dev` toma la URL,
+usuario y contraseña de `DB_URL`, `DB_USER` y `DB_PASSWORD`; Flyway puede usar
+`DB_FLYWAY_URL` y `DB_FLYWAY_USER` si se requiere una conexión directa a Neon.
+El perfil `prod` también exige `JWT_SECRET` y una URL PostgreSQL con SSL.

@@ -1,5 +1,6 @@
 export const ROUTES = {
   LOGIN:             '/login',
+  PASSWORD_CHANGE:   '/cambiar-password',
   DASHBOARD:         '/',
   POS:               '/pos',
   INVENTORY:         '/inventory',

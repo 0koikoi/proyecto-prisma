@@ -1,53 +1,79 @@
-/**
- * RESPONSABLE: Keila
- * MÓDULO: Autenticación — Contexto Global
- *
- * Contexto de autenticación que provee el usuario autenticado a toda la app.
- *
- * FLUJO ACTUAL (Sprint 1-4, modo mock):
- *  - El usuario está siempre "autenticado" con datos fijos (modo desarrollo).
- *
- * TODO Keila: Reemplazar el estado fijo por la llamada real al backend (Sprint 6-8):
- *   1. POST /api/auth/login → recibe { token, name, role }
- *   2. Guardar el token en localStorage: localStorage.setItem('token', token)
- *   3. En cada petición axios, incluir el header: Authorization: Bearer {token}
- *   4. En logout: eliminar el token con localStorage.removeItem('token')
- *   5. Al cargar la app, verificar si hay token guardado y si es válido (GET /api/auth/me)
- *
- * TODO Keila: Agregar manejo de expiración del token (interceptor de Axios que redirige al login en 401).
- */
-import { createContext, useContext, useState } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
+import { authService } from '../../feature/auth/authService';
 
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
-  // TODO Keila: al cargar la app, verificar si hay un token guardado en localStorage
-  const [user, setUser] = useState({
-    id: 1,
-    name: 'Administradora',
-    role: 'ADMIN',
-    email: 'admin@prisma.com',
-  });
+  const [user, setUser] = useState(null);
+  const [isLoading, setIsLoading] = useState(() => Boolean(localStorage.getItem('token')));
 
-  const login = (credentials) => {
-    // TODO Keila: llamar a authService.login() y guardar el token JWT
-    setUser({
-      id: 1,
-      name: credentials.name ?? credentials.username ?? 'Admin Prisma',
-      role: 'ADMIN',
-    });
+  useEffect(() => {
+    let active = true;
+    if (!localStorage.getItem('token')) return undefined;
+
+    authService.getCurrentUser()
+      .then((currentUser) => {
+        if (active) setUser(toSessionUser(currentUser));
+      })
+      .catch(() => {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        if (active) setUser(null);
+      })
+      .finally(() => {
+        if (active) setIsLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    const handleUnauthorized = () => setUser(null);
+    window.addEventListener('auth:unauthorized', handleUnauthorized);
+    return () => window.removeEventListener('auth:unauthorized', handleUnauthorized);
+  }, []);
+
+  const login = async (credentials) => {
+    const response = await authService.login(credentials);
+    const sessionUser = toSessionUser(response.user);
+    localStorage.setItem('token', response.token);
+    localStorage.setItem('user', JSON.stringify(sessionUser));
+    setUser(sessionUser);
+    return sessionUser;
+  };
+
+  const changePassword = async (passwords) => {
+    const response = await authService.changePassword(passwords);
+    const sessionUser = toSessionUser(response.user);
+    localStorage.setItem('token', response.token);
+    localStorage.setItem('user', JSON.stringify(sessionUser));
+    setUser(sessionUser);
+    return sessionUser;
   };
 
   const logout = () => {
-    // TODO Keila: eliminar token de localStorage
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
     setUser(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, isAuthenticated: !!user }}>
+    <AuthContext.Provider value={{
+      user, login, logout, changePassword, isLoading, isAuthenticated: !!user,
+    }}>
       {children}
     </AuthContext.Provider>
   );
 };
+
+const toSessionUser = ({ id, username, fullName, role, mustChangePassword }) => ({
+  id,
+  username,
+  name: fullName,
+  role,
+  mustChangePassword: Boolean(mustChangePassword),
+});
 
 export const useAuthContext = () => useContext(AuthContext);
