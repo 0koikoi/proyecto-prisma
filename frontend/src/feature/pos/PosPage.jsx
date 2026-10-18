@@ -15,21 +15,18 @@
  *  6. Modal de pago: selector de método + cálculo de vuelto en efectivo
  *  7. Buscador rápido por teclado (Cmd/Ctrl+K) y atajos F2/F4/Esc (RNF02)
  *
- * CONEXIÓN CON BACKEND:
- *  - GET  /api/products?search=&categoryId= → catálogo del POS
- *  - POST /api/sales                        → procesar venta (@Transactional)
- *
- * TODO Leo: Reemplazar el mock de inventoryService por GET /api/products.
- * TODO Leo: Reemplazar el mock de posService.processSale() por POST /api/sales.
+ * CONEXIÓN CON BACKEND (ver posService y core/api/backendMode.js):
+ *  - GET  /api/pos/catalog → variantes vendibles con stock disponible
+ *  - POST /api/sales       → procesar venta (@Transactional); el servidor fija precios, total y turno
  */
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Search, ScanLine, Command as CommandIcon, Volume2, VolumeX, AlertTriangle } from 'lucide-react';
 import { Toaster, toast } from 'sonner';
 import { useHotkeys } from 'react-hotkeys-hook';
 import { playSound, isSoundEnabled, setSoundEnabled } from 'react-sounds';
 import confetti from 'canvas-confetti';
 import { usePos } from './hooks/usePos';
-import { useInventory } from '../inventory/hooks/useInventory';
+import { usePosCatalog } from './hooks/usePosCatalog';
 import { useCashRegister } from '../cash-register/hooks/useCashRegister';
 import { ProductGrid } from './components/ProductGrid';
 import { ProductGridSkeleton } from './components/ProductGridSkeleton';
@@ -43,7 +40,7 @@ import { Input } from '../../shared/components/Input';
 const SEARCH_INPUT_ID = 'pos-search-input';
 
 export const PosPage = () => {
-  const { allProducts, loading: productsLoading } = useInventory();
+  const { products: allProducts, loading: productsLoading, reload: reloadCatalog } = usePosCatalog();
   const {
     cart, addToCart, updateQuantity, removeFromCart, clearCart,
     subtotal, discount, discountAmount, total, applyDiscount, clearDiscount,
@@ -58,6 +55,11 @@ export const PosPage = () => {
   const [isPaymentOpen, setIsPaymentOpen] = useState(false);
   const [isQuickSearchOpen, setIsQuickSearchOpen] = useState(false);
   const [receipt, setReceipt] = useState(null);
+  // Clave del intento de cobro: se reutiliza al reintentar para que el backend no duplique la venta.
+  const saleKeyRef = useRef(null);
+  useEffect(() => {
+    saleKeyRef.current = null;
+  }, [cart, discount]);
   const [soundOn, setSoundOn] = useState(() => isSoundEnabled());
 
   const toggleSound = () => {
@@ -96,20 +98,35 @@ export const PosPage = () => {
       p.name.toLowerCase().includes(q) ||
       p.sku.toLowerCase().includes(q) ||
       (p.barcode && p.barcode.includes(q));
-    const matchesCategory = selectedCategory === 'ALL' || p.category === selectedCategory;
+    // includes: el backend nombra la categoría 'Ropa Urbana', las pestañas dicen 'Urbana'.
+    const matchesCategory = selectedCategory === 'ALL' || p.category?.includes(selectedCategory);
     return matchesSearch && matchesCategory;
   });
 
   const handleSaleSuccess = async (paymentData) => {
+    saleKeyRef.current ??= crypto.randomUUID();
     const payload = {
-      items: cart.map((i) => ({ productId: i.id, quantity: i.quantity, price: i.price })),
+      requestKey: saleKeyRef.current,
+      items: cart.map((i) => ({ variantId: i.id, sku: i.sku, name: i.name, quantity: i.quantity, price: i.price })),
       subtotal,
       discount,
       discountAmount,
       total,
       ...paymentData,
     };
-    const res = await posService.processSale(payload);
+    let res;
+    try {
+      res = await posService.processSale(payload);
+    } catch (err) {
+      // TypeError = fetch sin red: el carrito se conserva y el reintento usa la misma clave.
+      toast.error(
+        err instanceof TypeError || !err?.message
+          ? 'No se pudo registrar la venta. Revisa la conexión e inténtalo de nuevo.'
+          : err.message
+      );
+      playSound('notification/error', { volume: 0.4 });
+      return;
+    }
     toast.success(`¡Venta registrada! Ticket #${res.ticketNumber}`);
     playSound('notification/success', { volume: 0.5 });
     // Confetti monocromático (blanco/negro/grises) para no romper el diseño minimalista
@@ -123,19 +140,21 @@ export const PosPage = () => {
       disableForReducedMotion: true,
     });
     // Refleja la venta en los totales de Caja por método de pago (antes nunca se sincronizaba)
-    registerSale({ paymentMethod: paymentData.paymentMethod, amount: total });
+    registerSale({ paymentMethod: res.paymentMethod, amount: res.total });
+    // El stock cambió en el servidor: se refresca el catálogo sin mostrar el esqueleto de carga.
+    reloadCatalog({ silent: true });
     // Se captura una copia del carrito antes de vaciarlo para el comprobante imprimible
     setReceipt({
       ticketNumber: res.ticketNumber,
       createdAt: res.createdAt,
       items: cart,
-      subtotal,
+      subtotal: res.subtotal,
       discount,
-      discountAmount,
-      total,
-      paymentMethod: paymentData.paymentMethod,
-      cashGiven: paymentData.cashGiven,
-      vuelto: paymentData.vuelto,
+      discountAmount: res.discountAmount,
+      total: res.total,
+      paymentMethod: res.paymentMethod,
+      cashGiven: res.cashGiven,
+      vuelto: res.vuelto,
     });
     clearCart();
   };
