@@ -5,19 +5,9 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="5388342e-03f9-4902-b4e7-634000778fff" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/modules.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/proyecto-prisma.iml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/frontend/src/feature/financial-reports/components/RevenueBarChart.jsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/src/main/java/com/prisma/api/application/usecases/FinancialReportUseCase.java" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/main/java/com/prisma/api/application/usecases/FinancialReportUseCase.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/src/main/java/com/prisma/api/domain/entities/FinancialTransaction.java" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/main/java/com/prisma/api/domain/entities/FinancialTransaction.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/src/main/java/com/prisma/api/domain/repository/FinancialTransactionRepository.java" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/main/java/com/prisma/api/domain/repository/FinancialTransactionRepository.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/package-lock.json" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/package-lock.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/package.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/feature/financial-reports/FinancialReportsPage.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/feature/financial-reports/FinancialReportsPage.jsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/frontend/src/feature/financial-reports/services/financialService.js" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/feature/financial-reports/services/financialService.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/feature/suppliers/services/suppliersService.js" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/feature/suppliers/services/suppliersService.js" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />

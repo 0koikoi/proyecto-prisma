@@ -58,7 +58,15 @@ export const suppliersService = {
    * RF19: Registra una reposición de stock vinculada a un proveedor.
    */
   async registerRestock(restockData) {
-    // return apiClient.post('/purchases', restockData);
+    try {
+      const response = await apiClient.post('/purchases', restockData);
+      if (response) {
+        MOCK_PURCHASES.unshift(response);
+        return { success: true, purchase: response };
+      }
+    } catch (err) {
+      console.warn('Backend /purchases no disponible, simulando localmente:', err.message);
+    }
     const purchase = {
       id: `PUR-${Date.now().toString().slice(-4)}`,
       ...restockData,

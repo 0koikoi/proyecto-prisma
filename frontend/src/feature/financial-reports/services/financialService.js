@@ -205,8 +205,19 @@ const MOCK_TRANSACTIONS = [
 
 export const financialService = {
   async getFinancialReport(filters = {}) {
-    // const params = new URLSearchParams(filters).toString();
-    // return apiClient.get(`/finance/summary?${params}`);
+    try {
+      const params = new URLSearchParams();
+      if (filters.startDate) params.append('startDate', filters.startDate);
+      if (filters.endDate) params.append('endDate', filters.endDate);
+      const queryString = params.toString();
+      const endpoint = `/finance/summary${queryString ? `?${queryString}` : ''}`;
+      const data = await apiClient.get(endpoint);
+      if (data && data.transactions) {
+        return data;
+      }
+    } catch (err) {
+      console.warn('Backend /finance/summary no disponible, usando datos locales:', err.message);
+    }
 
     let transactions = [...MOCK_TRANSACTIONS];
     if (filters.startDate || filters.endDate) {
