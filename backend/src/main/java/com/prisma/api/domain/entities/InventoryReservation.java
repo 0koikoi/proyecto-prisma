@@ -2,12 +2,14 @@ package com.prisma.api.domain.entities;
 
 import com.prisma.api.domain.enums.ReservationStatus;
 import jakarta.persistence.*;
+import org.springframework.data.domain.Persistable;
+
 import java.time.Instant;
 import java.util.Objects;
 
 @Entity
 @Table(name = "inventory_reservations")
-public class InventoryReservation {
+public class InventoryReservation implements Persistable<Long> {
 
     @Id
     @Column(name = "order_detail_id")
@@ -32,7 +34,11 @@ public class InventoryReservation {
     @Column(name = "ended_at")
     private Instant endedAt;
 
+    @Transient
+    private boolean isNew = true;
+
     public InventoryReservation() {
+        this.isNew = false;
     }
 
     public InventoryReservation(OrderDetail orderDetail, User createdBy) {
@@ -43,12 +49,32 @@ public class InventoryReservation {
         if (orderDetail != null) {
             this.orderDetailId = orderDetail.getId();
         }
+        this.isNew = true;
+    }
+
+    @Override
+    public Long getId() {
+        return orderDetailId;
+    }
+
+    @Override
+    public boolean isNew() {
+        return isNew;
+    }
+
+    @PostPersist
+    @PostLoad
+    void markNotNew() {
+        this.isNew = false;
     }
 
     @PrePersist
     protected void onCreate() {
         if (this.createdAt == null) {
             this.createdAt = Instant.now();
+        }
+        if (this.orderDetail != null && this.orderDetailId == null) {
+            this.orderDetailId = this.orderDetail.getId();
         }
     }
 
@@ -106,12 +132,13 @@ public class InventoryReservation {
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
-        if (!(o instanceof InventoryReservation that)) return false;
+        if (o == null || getClass() != o.getClass()) return false;
+        InventoryReservation that = (InventoryReservation) o;
         return Objects.equals(orderDetailId, that.orderDetailId);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hashCode(orderDetailId);
+        return Objects.hash(orderDetailId);
     }
 }

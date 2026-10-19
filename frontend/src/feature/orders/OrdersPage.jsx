@@ -29,18 +29,31 @@ export const OrdersPage = () => {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
 
-  const handleUpdateStatus = async (id, newStatus) => {
-    await updateStatus(id, newStatus);
-    showToast(`Estado de pedido #${id} actualizado a ${newStatus}.`, 'success');
+  const handleUpdateStatus = async (id, newStatus, reason) => {
+    try {
+      const updated = await updateStatus(id, newStatus, reason);
+      if (selectedOrder && selectedOrder.id === id) {
+        setSelectedOrder((prev) => ({
+          ...prev,
+          ...updated,
+          shippingStatus: updated?.shippingStatus || newStatus,
+        }));
+      }
+      showToast(`Estado del pedido actualizado a ${newStatus}.`, 'success');
+    } catch (err) {
+      const msg = err.response?.data?.message || err.message || 'Error al actualizar el estado del pedido.';
+      showToast(msg, 'error');
+    }
   };
 
   const handleCreateOrder = async (orderData) => {
     try {
       const created = await createOrder(orderData);
       setIsFormOpen(false);
-      showToast(`Pedido #${created.id} registrado correctamente.`, 'success');
+      showToast(`Pedido #${created.orderCode || created.id} registrado correctamente.`, 'success');
     } catch (err) {
-      showToast('Error al registrar el pedido.', 'error');
+      const msg = err.response?.data?.message || err.message || 'Error al registrar el pedido.';
+      showToast(msg, 'error');
     }
   };
 
@@ -55,7 +68,7 @@ export const OrdersPage = () => {
         <div>
           <h1>Pedidos y Logística</h1>
           <p className="text-sm text-gray-500 mt-0.5">
-            Pedidos de WhatsApp, Messenger y tienda online — seguimiento de estado y courier.
+            Pedidos de WhatsApp, Messenger, Instagram y tienda online — seguimiento de estado y courier.
           </p>
         </div>
         <Button
@@ -80,6 +93,7 @@ export const OrdersPage = () => {
             <option value="PREPARING">En preparación</option>
             <option value="SHIPPED">Enviados</option>
             <option value="DELIVERED">Entregados</option>
+            <option value="CANCELLED">Cancelados</option>
           </select>
 
           <select
@@ -88,9 +102,10 @@ export const OrdersPage = () => {
             className="h-10 px-3.5 border border-gray-300 rounded-xl text-xs font-bold uppercase tracking-wider bg-white text-gray-700 outline-none focus:ring-2 focus:ring-[#1c1c1c] cursor-pointer shadow-xs"
           >
             <option value="ALL">Todos los canales</option>
-            <option value="WhatsApp">WhatsApp</option>
-            <option value="Messenger">Messenger</option>
-            <option value="Tienda Online">Tienda Online</option>
+            <option value="WHATSAPP">WhatsApp</option>
+            <option value="MESSENGER">Messenger</option>
+            <option value="INSTAGRAM">Instagram</option>
+            <option value="TIENDA_ONLINE">Tienda Online</option>
           </select>
         </div>
       </div>
@@ -118,6 +133,7 @@ export const OrdersPage = () => {
           setSelectedOrder(null);
         }}
         order={selectedOrder}
+        onUpdateStatus={handleUpdateStatus}
       />
     </div>
   );

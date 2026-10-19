@@ -8,6 +8,7 @@ import java.util.Optional;
 
 public interface ProductRepository extends JpaRepository<Product, Long>, JpaSpecificationExecutor<Product> {
     boolean existsByCategoryIdAndIsActiveTrue(Long categoryId);
+    Optional<Product> findByIdAndIsActiveTrue(Long id);
 
     // A scalar lookup does not populate the persistence context before locking.
     @Query("select p.category.id from Product p where p.id = :id")

@@ -60,16 +60,16 @@ export const SupplierCard = ({ supplier, onEdit, onRestock }) => {
           </button>
         </div>
 
-        {/* Línea de suministro y RUC */}
+        {/* Línea de suministro y Documento */}
         <div className="flex flex-wrap items-center gap-2 mb-4">
           <span className="badge badge-neutral text-xs py-0.5">
             <Tag size={11} className="mr-1" />
-            {supplier.productsSupplied || 'General'}
+            {supplier.productsSupplied || 'Prendas y Suministros'}
           </span>
           {supplier.taxId && (
             <span className="inline-flex items-center gap-1 text-[11px] font-mono text-gray-600 bg-gray-100 px-2 py-0.5 rounded-md">
               <FileText size={11} className="text-gray-400" />
-              RUC: {supplier.taxId}
+              {supplier.taxIdType || 'DOC'}: {supplier.taxId}
             </span>
           )}
         </div>
