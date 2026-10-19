@@ -96,7 +96,8 @@ export const RestockModal = ({ isOpen, onClose, onSave, suppliers = [], initialS
     const restockData = {
       supplierId: Number(selectedSupplierId),
       supplierName: selectedSupplier ? selectedSupplier.companyName : '',
-      productId: Number(selectedProductId),
+      variantId: Number(selectedProductId),
+      productId: selectedProduct?.productId ? Number(selectedProduct.productId) : Number(selectedProductId),
       productName: selectedProduct ? selectedProduct.name : '',
       productSku: selectedProduct ? selectedProduct.sku : '',
       quantity: qty,

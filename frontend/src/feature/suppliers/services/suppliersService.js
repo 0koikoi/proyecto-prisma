@@ -49,12 +49,17 @@ export const suppliersService = {
    * RF19: Registra una reposición de stock.
    */
   async registerRestock(restockData) {
-    try {
-      const response = await apiClient.post('/purchases', restockData);
-      return { success: true, ...response };
-    } catch {
-      return { success: true, ...restockData, purchasedAt: new Date().toISOString() };
-    }
+    const payload = {
+      supplierId: restockData.supplierId,
+      variantId: restockData.variantId,
+      productId: restockData.productId,
+      quantity: restockData.quantity,
+      costPrice: restockData.costPrice,
+      invoiceNumber: restockData.invoiceNumber,
+      paymentMethod: restockData.paymentMethod,
+      notes: restockData.notes,
+    };
+    return apiClient.post('/purchases', payload);
   },
 
   async getPurchasesHistory() {

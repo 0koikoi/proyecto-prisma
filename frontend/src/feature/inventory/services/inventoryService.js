@@ -75,38 +75,47 @@ export const inventoryService = {
   },
 
   async createProduct(productData) {
-    try {
-      // 1. Crear producto base
-      const prodPayload = {
-        categoryId: Number(productData.categoryId) || 1,
-        name: productData.name,
-        description: productData.description || 'Producto creado desde panel',
-        imageUrl: productData.imageUrl || 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=800',
-      };
-      const createdProd = await apiClient.post('/products', prodPayload);
+    const isHttpUrl = (url) => typeof url === 'string' && /^https?:\/\//i.test(url.trim());
+    const cleanImageUrl = isHttpUrl(productData.imageUrl) ? productData.imageUrl.trim() : null;
 
-      // 2. Crear variante asociada con precio y SKU
-      const variantPayload = {
-        sku: productData.sku,
-        barcode: productData.barcode || null,
-        sizeLabel: productData.sizeLabel || 'UNICA',
-        colorLabel: productData.colorLabel || 'ESTANDAR',
-        costPrice: Number(productData.costPrice) || 0,
-        salePrice: Number(productData.price) || 0,
-        minStockAlert: Number(productData.minStockAlert) || 3,
-      };
-      const createdVariant = await apiClient.post(`/products/${createdProd.id}/variants`, variantPayload);
-      return createdVariant;
-    } catch (err) {
-      console.warn('Fallo al crear producto en backend, guardando localmente:', err.message);
-      const newProduct = {
-        id: Date.now(),
-        ...productData,
-        price: parseFloat(productData.price) || 0,
-        stock: parseInt(productData.stock, 10) || 0,
-      };
-      return newProduct;
+    // 1. Crear producto base
+    const prodPayload = {
+      categoryId: Number(productData.categoryId) || 1,
+      name: productData.name?.trim(),
+      description: productData.description?.trim() || 'Producto registrado desde inventario',
+      imageUrl: cleanImageUrl,
+    };
+    const createdProd = await apiClient.post('/products', prodPayload);
+
+    // 2. Crear variante asociada con precio y SKU
+    const variantPayload = {
+      sku: productData.sku?.trim(),
+      barcode: productData.barcode?.trim() || null,
+      sizeLabel: productData.sizeLabel?.trim() || 'UNICA',
+      colorLabel: productData.colorLabel?.trim() || 'ESTANDAR',
+      costPrice: Number(productData.costPrice) >= 0 ? Number(productData.costPrice) : 0,
+      salePrice: Number(productData.price) > 0 ? Number(productData.price) : 1,
+      minStockAlert: Number(productData.minStockAlert) >= 0 ? Number(productData.minStockAlert) : 3,
+    };
+    const createdVariant = await apiClient.post(`/products/${createdProd.id}/variants`, variantPayload);
+
+    // 3. Si se especificó stock inicial > 0, registrar el movimiento de ajuste en el kardex
+    const initialStock = parseInt(productData.stock, 10);
+    if (!isNaN(initialStock) && initialStock > 0) {
+      try {
+        await apiClient.post(`/variants/${createdVariant.id}/adjustments`, {
+          requestKey: crypto.randomUUID(),
+          quantity: initialStock,
+          reason: 'Inventario inicial registrado desde panel',
+        });
+        createdVariant.currentStock = initialStock;
+        createdVariant.availableStock = initialStock;
+      } catch (adjErr) {
+        console.warn('Variante creada pero falló el ajuste de stock inicial:', adjErr.message);
+      }
     }
+
+    return createdVariant;
   },
 
   async updateProduct(id, productData) {
