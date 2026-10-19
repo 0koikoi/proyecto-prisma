@@ -8,6 +8,19 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 export default defineConfig({
   base: '/proyecto-prisma/',
+  server: {
+    proxy: {
+      '/api': {
+        target: 'http://127.0.0.1:8080',
+        changeOrigin: true,
+      },
+      '/proyecto-prisma/api': {
+        target: 'http://127.0.0.1:8080',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/proyecto-prisma/, ''),
+      },
+    },
+  },
   plugins: [
     react(),
     tailwindcss(),
