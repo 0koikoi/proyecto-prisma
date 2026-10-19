@@ -36,7 +36,7 @@ import { formatCurrency, formatDate } from '../../shared/utils/formatters';
 const PAYMENT_LABELS = { EFECTIVO: 'Efectivo', YAPE: 'Yape', PLIN: 'Plin', TARJETA: 'Tarjeta' };
 
 export const CashRegisterPage = () => {
-  const { cashStatus, openCash, closeCash } = useCashRegister();
+  const { cashStatus, loading, reload, openCash, closeCash } = useCashRegister();
   // Mientras carga (cashStatus null) no se asume ningún estado.
   const isShiftOpen = cashStatus?.isOpen !== false;
   const [isOpenModal, setIsOpenModal] = useState(false);
@@ -48,7 +48,24 @@ export const CashRegisterPage = () => {
   useHotkeys('f4', (e) => { e.preventDefault(); if (isShiftOpen) setIsCloseModal(true); }, [isShiftOpen]);
   useHotkeys('esc', () => { setIsOpenModal(false); setIsCloseModal(false); }, { enabled: isOpenModal || isCloseModal });
 
-  if (!cashStatus) return <CashRegisterSkeleton />;
+  if (loading && !cashStatus) return <CashRegisterSkeleton />;
+
+  if (!cashStatus) {
+    return (
+      <div className="page-container">
+        <Toaster position="top-center" theme="light" richColors />
+        <div className="content-card flex flex-col items-center justify-center p-8 text-center space-y-3">
+          <p className="text-gray-900 font-bold text-base">No se pudo cargar el estado de la caja</p>
+          <p className="text-gray-500 text-sm max-w-md">
+            Verifica que el backend de Spring Boot esté iniciado en http://localhost:8080 y conectado a la base de datos.
+          </p>
+          <Button variant="primary" onClick={reload}>
+            Reintentar conexión
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   const totalIngresos =
     cashStatus.totalCashSales +
