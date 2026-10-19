@@ -59,4 +59,23 @@ public interface ProductVariantRepository extends JpaRepository<ProductVariant, 
               and r.status = com.prisma.api.domain.enums.ReservationStatus.ACTIVE
             """)
     long countActiveProductReservations(@Param("productId") Long productId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select v from ProductVariant v where v.id in :ids order by v.id")
+    List<ProductVariant> findAllByIdForUpdate(@Param("ids") Collection<Long> ids);
+
+    @Query("select v from ProductVariant v join fetch v.product p join fetch p.category "
+            + "where v.isActive = true and p.isActive = true order by p.name, v.id")
+    List<ProductVariant> findSellableCatalog();
+
+    @Query("select v from ProductVariant v join fetch v.product p join fetch p.category "
+            + "where v.barcode = :barcode and v.isActive = true and p.isActive = true")
+    Optional<ProductVariant> findSellableByBarcode(@Param("barcode") String barcode);
+
+    @Query(value = """
+            select variant_id as "variantId", reserved_stock as "reservedStock",
+                   available_stock as "availableStock"
+              from v_inventory_availability
+            """, nativeQuery = true)
+    List<Availability> findAllAvailability();
 }

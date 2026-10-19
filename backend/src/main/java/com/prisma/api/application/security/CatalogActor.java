@@ -2,7 +2,7 @@ package com.prisma.api.application.security;
 
 import com.prisma.api.domain.entities.User;
 import com.prisma.api.domain.enums.UserRole;
-import com.prisma.api.infrastructure.persistence.UserRepository;
+import com.prisma.api.domain.repository.UserRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -31,7 +31,10 @@ public class CatalogActor {
                 ? users.findById(authenticatedUser.getId())
                 : users.findByUsername(authentication.getName()))
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Usuario no disponible."));
-        if (!actor.isActive() || (actor.getRole() != UserRole.ADMIN && actor.getRole() != UserRole.VENDEDOR)) {
+        if (!actor.isActive()) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "El usuario está desactivado.");
+        }
+        if (actor.getRole() != UserRole.ADMIN && actor.getRole() != UserRole.VENDEDOR) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "El usuario no tiene acceso al catálogo.");
         }
         return actor;

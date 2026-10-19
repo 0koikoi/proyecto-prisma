@@ -1,7 +1,7 @@
 package com.prisma.api.application.auth;
 
 import com.prisma.api.domain.entities.User;
-import com.prisma.api.domain.repositories.UserRepository;
+import com.prisma.api.domain.repository.UserRepository;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;

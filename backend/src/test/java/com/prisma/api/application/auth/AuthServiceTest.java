@@ -13,7 +13,7 @@ import static org.mockito.Mockito.when;
 
 import com.prisma.api.domain.entities.User;
 import com.prisma.api.domain.enums.UserRole;
-import com.prisma.api.domain.repositories.UserRepository;
+import com.prisma.api.domain.repository.UserRepository;
 import java.time.Instant;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;

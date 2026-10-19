@@ -4,13 +4,12 @@ import com.prisma.api.application.sale.dto.PosCatalogItemResponse;
 import com.prisma.api.application.sale.mapper.PosCatalogMapper;
 import com.prisma.api.domain.entities.ProductVariant;
 import com.prisma.api.domain.exceptions.ResourceNotFoundException;
-import com.prisma.api.infrastructure.persistence.ProductVariantRepository;
+import com.prisma.api.domain.repository.ProductVariantRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Map;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /** Catálogo de solo lectura para el mostrador: variantes activas con su stock vendible (RF07, RF08). */

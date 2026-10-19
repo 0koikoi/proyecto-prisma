@@ -3,7 +3,7 @@ package com.prisma.api.infrastructure.config;
 import com.prisma.api.application.port.CurrentUserProvider;
 import com.prisma.api.domain.entities.User;
 import com.prisma.api.domain.enums.UserRole;
-import com.prisma.api.infrastructure.persistence.UserRepository;
+import com.prisma.api.domain.repository.UserRepository;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

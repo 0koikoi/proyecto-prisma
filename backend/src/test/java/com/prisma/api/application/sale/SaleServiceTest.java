@@ -22,10 +22,10 @@ import com.prisma.api.domain.enums.PaymentMethod;
 import com.prisma.api.domain.enums.UserRole;
 import com.prisma.api.domain.exceptions.BusinessRuleException;
 import com.prisma.api.domain.exceptions.ResourceNotFoundException;
+import com.prisma.api.domain.repository.InventoryMovementRepository;
+import com.prisma.api.domain.repository.ProductVariantRepository;
 import com.prisma.api.infrastructure.persistence.CashRegisterRepository;
 import com.prisma.api.infrastructure.persistence.FinancialTransactionRepository;
-import com.prisma.api.infrastructure.persistence.InventoryMovementRepository;
-import com.prisma.api.infrastructure.persistence.ProductVariantRepository;
 import com.prisma.api.infrastructure.persistence.SaleDetailRepository;
 import com.prisma.api.infrastructure.persistence.SaleRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -113,6 +113,11 @@ class SaleServiceTest {
             @Override
             public Long getVariantId() {
                 return variantId;
+            }
+
+            @Override
+            public Long getReservedStock() {
+                return 0L;
             }
 
             @Override
