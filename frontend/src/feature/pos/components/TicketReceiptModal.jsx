@@ -20,7 +20,7 @@ import { formatCurrency, formatDate } from '../../../shared/utils/formatters';
 
 const PAYMENT_LABELS = { EFECTIVO: 'Efectivo', YAPE: 'Yape', PLIN: 'Plin', TARJETA: 'Tarjeta' };
 
-export const TicketReceiptModal = ({ isOpen, onClose, receipt }) => {
+export const TicketReceiptModal = ({ isOpen, onClose, receipt, title = 'Venta registrada' }) => {
   const show = isOpen && !!receipt;
 
   return (
@@ -59,7 +59,7 @@ export const TicketReceiptModal = ({ isOpen, onClose, receipt }) => {
               <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 print:hidden">
                 <div className="flex items-center gap-2 text-emerald-600 font-semibold text-sm">
                   <CheckCircle2 size={18} />
-                  <span>Venta registrada</span>
+                  <span>{title}</span>
                 </div>
                 <button
                   type="button"
@@ -97,14 +97,14 @@ export const TicketReceiptModal = ({ isOpen, onClose, receipt }) => {
 
                 <div className="border-t border-dashed border-gray-400 my-2" />
 
-                {receipt.discount ? (
+                {receipt.discount || receipt.discountAmount > 0 ? (
                   <>
                     <div className="flex justify-between">
                       <span>Subtotal</span>
                       <span>{formatCurrency(receipt.subtotal)}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span>Descuento{receipt.discount.type === 'PERCENT' ? ` (${receipt.discount.value}%)` : ''}</span>
+                      <span>Descuento{receipt.discount?.type === 'PERCENT' ? ` (${receipt.discount.value}%)` : ''}</span>
                       <span>-{formatCurrency(receipt.discountAmount)}</span>
                     </div>
                   </>
