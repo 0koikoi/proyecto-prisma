@@ -8,4 +8,5 @@ import java.util.UUID;
 public interface InventoryMovementRepository extends JpaRepository<InventoryMovement, Long>, JpaSpecificationExecutor<InventoryMovement> {
     Optional<InventoryMovement> findByRequestKey(UUID requestKey);
     boolean existsByReversalOfId(Long movementId);
+    java.util.List<InventoryMovement> findByVariantIdOrderByCreatedAtDesc(Long variantId);
 }

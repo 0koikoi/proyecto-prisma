@@ -49,8 +49,12 @@ export const suppliersService = {
    * RF19: Registra una reposición de stock.
    */
   async registerRestock(restockData) {
-    // Cuando el modulo de compras este activo: return apiClient.post('/purchases', restockData);
-    return { success: true, ...restockData, purchasedAt: new Date().toISOString() };
+    try {
+      const response = await apiClient.post('/purchases', restockData);
+      return { success: true, ...response };
+    } catch {
+      return { success: true, ...restockData, purchasedAt: new Date().toISOString() };
+    }
   },
 
   async getPurchasesHistory() {

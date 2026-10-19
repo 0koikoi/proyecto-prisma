@@ -10,8 +10,11 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 
 @Repository
 public interface FinancialTransactionRepository extends JpaRepository<FinancialTransaction, Long> {
@@ -19,6 +22,33 @@ public interface FinancialTransactionRepository extends JpaRepository<FinancialT
     List<FinancialTransaction> findBySaleId(Long saleId);
 
     List<FinancialTransaction> findBySaleIdIn(Collection<Long> saleIds);
+
+    List<FinancialTransaction> findByPurchaseId(Long purchaseId);
+
+    List<FinancialTransaction> findByOrderId(Long orderId);
+
+    Optional<FinancialTransaction> findByRequestKey(UUID requestKey);
+
+    List<FinancialTransaction> findAllByOrderByCreatedAtDesc();
+
+    List<FinancialTransaction> findByStatusOrderByCreatedAtDesc(FinancialTransactionStatus status);
+
+    @Query("SELECT ft FROM FinancialTransaction ft " +
+           "WHERE ft.createdAt >= :startDate AND ft.createdAt <= :endDate " +
+           "ORDER BY ft.createdAt DESC")
+    List<FinancialTransaction> findBetweenDates(
+            @Param("startDate") Instant startDate,
+            @Param("endDate") Instant endDate
+    );
+
+    @Query("SELECT ft FROM FinancialTransaction ft " +
+           "WHERE ft.createdAt >= :startDate AND ft.createdAt <= :endDate AND ft.status = :status " +
+           "ORDER BY ft.createdAt DESC")
+    List<FinancialTransaction> findBetweenDatesAndStatus(
+            @Param("startDate") Instant startDate,
+            @Param("endDate") Instant endDate,
+            @Param("status") FinancialTransactionStatus status
+    );
 
     /** Total por método de pago y dirección (IN/OUT) de un turno de caja. */
     interface MethodTotal {

@@ -19,6 +19,8 @@ public interface ProductVariantRepository extends JpaRepository<ProductVariant, 
     Optional<ProductVariant> findByIdActiveWithProduct(@Param("id") Long id);
 
     Optional<ProductVariant> findBySku(String sku);
+    List<ProductVariant> findByProductId(Long productId);
+    Optional<ProductVariant> findFirstByProductIdAndIsActiveTrueOrderByIdAsc(Long productId);
 
     @Query("select v.product.id from ProductVariant v where v.id = :id")
     Optional<Long> findProductIdById(@Param("id") Long id);

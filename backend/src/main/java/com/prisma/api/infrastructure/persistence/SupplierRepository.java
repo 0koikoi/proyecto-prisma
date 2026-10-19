@@ -13,6 +13,8 @@ import java.util.Optional;
 @Repository
 public interface SupplierRepository extends JpaRepository<Supplier, Long> {
 
+    List<Supplier> findByIsActiveTrue();
+
     // Lista solo los proveedores activos ordenados por razon social
     List<Supplier> findByIsActiveTrueOrderByCompanyNameAsc();
 
