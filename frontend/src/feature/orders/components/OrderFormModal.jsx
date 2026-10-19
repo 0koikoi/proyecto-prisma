@@ -10,6 +10,11 @@ import { Input } from '../../../shared/components/Input';
 import { inventoryService } from '../../inventory/services/inventoryService';
 import { formatCurrency } from '../../../shared/utils/formatters';
 import {
+  isValidPeruvianPhone,
+  sanitizePhoneInput,
+  isValidPersonName,
+} from '../../../shared/utils/validators';
+import {
   User,
   Phone,
   MapPin,
@@ -44,6 +49,7 @@ export const OrderFormModal = ({ isOpen, onClose, onSave }) => {
   const [selectedProductId, setSelectedProductId] = useState('');
   const [selectedQty, setSelectedQty] = useState(1);
   const [errorMsg, setErrorMsg] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Cargar catálogo de productos
   useEffect(() => {
@@ -117,7 +123,6 @@ export const OrderFormModal = ({ isOpen, onClose, onSave }) => {
         ...items,
         {
           productId: prod.id,
-          // Mapeamos temporalmente variantId al id del producto hasta que Mauricio publique sus variantes
           variantId: prod.id,
           productName: prod.name,
           sku: prod.sku,
@@ -137,26 +142,32 @@ export const OrderFormModal = ({ isOpen, onClose, onSave }) => {
   const totalProducts = items.reduce((acc, it) => acc + it.subtotal, 0);
   const totalOrder = Number((totalProducts + Number(shippingCost || 0)).toFixed(2));
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!customerName.trim()) {
-      setErrorMsg('El nombre del cliente es obligatorio');
+    setErrorMsg('');
+
+    if (!isValidPersonName(customerName)) {
+      setErrorMsg('El nombre del cliente debe tener al menos 3 caracteres y contener solo letras y espacios.');
       return;
     }
-    if (!phone.trim()) {
-      setErrorMsg('El teléfono del cliente es obligatorio');
+    if (!isValidPeruvianPhone(phone)) {
+      setErrorMsg('El teléfono del cliente debe ser un celular peruano válido: empezar sí o sí con 9 y tener exactamente 9 dígitos.');
       return;
     }
     if (!shippingAddress.trim()) {
-      setErrorMsg('La dirección de entrega es obligatoria');
+      setErrorMsg('La dirección de entrega es obligatoria.');
       return;
     }
     if (!reference.trim()) {
-      setErrorMsg('La referencia de ubicación es obligatoria para el despacho');
+      setErrorMsg('La referencia de ubicación es obligatoria para el despacho.');
+      return;
+    }
+    if (driverPhone.trim() && !isValidPeruvianPhone(driverPhone)) {
+      setErrorMsg('El teléfono del conductor/repartidor debe ser un celular válido (empieza con 9 y 9 dígitos).');
       return;
     }
     if (items.length === 0) {
-      setErrorMsg('Debe agregar al menos un producto al pedido');
+      setErrorMsg('Debe agregar al menos un producto al pedido.');
       return;
     }
 
@@ -183,15 +194,21 @@ export const OrderFormModal = ({ isOpen, onClose, onSave }) => {
       })),
     };
 
-    onSave(newOrderPayload);
+    try {
+      setIsSubmitting(true);
+      await onSave(newOrderPayload);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Nuevo Pedido (WhatsApp / Courier)" maxWidth="640px">
       <form onSubmit={handleSubmit} className="space-y-4">
         {errorMsg && (
-          <div className="p-2.5 rounded-lg bg-red-50 border border-red-200 text-xs text-red-600 font-medium">
-            {errorMsg}
+          <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700 font-medium leading-relaxed flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" />
+            <span>{errorMsg}</span>
           </div>
         )}
 
@@ -225,14 +242,19 @@ export const OrderFormModal = ({ isOpen, onClose, onSave }) => {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <Input
-            label="Teléfono / Celular"
-            placeholder="Ej: 987654321"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            icon={Phone}
-            required
-          />
+          <div>
+            <Input
+              label="Teléfono / Celular (Perú)"
+              placeholder="987654321"
+              value={phone}
+              onChange={(e) => setPhone(sanitizePhoneInput(e.target.value))}
+              icon={Phone}
+              required
+            />
+            <span className="text-[11px] text-gray-500 mt-1 block">
+              9 dígitos numéricos iniciando con 9. ({phone.length}/9)
+            </span>
+          </div>
           <Input
             label="Dirección Exacta de Entrega"
             placeholder="Ej: Jr. Dos de Mayo 450, Huánuco"
@@ -348,7 +370,7 @@ export const OrderFormModal = ({ isOpen, onClose, onSave }) => {
                 label="Celular Chofer"
                 placeholder="Ej: 962112233"
                 value={driverPhone}
-                onChange={(e) => setDriverPhone(e.target.value)}
+                onChange={(e) => setDriverPhone(sanitizePhoneInput(e.target.value))}
                 icon={Phone}
               />
               <Input
@@ -453,13 +475,24 @@ export const OrderFormModal = ({ isOpen, onClose, onSave }) => {
           </div>
         </div>
 
-        {/* Botones de acción */}
-        <div className="flex justify-end gap-2 pt-2">
-          <Button variant="secondary" type="button" onClick={onClose}>
+        {/* Botones de acción adaptables responsive */}
+        <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2.5 pt-3 border-t border-gray-100">
+          <Button
+            variant="secondary"
+            type="button"
+            onClick={onClose}
+            disabled={isSubmitting}
+            className="w-full sm:w-auto"
+          >
             Cancelar
           </Button>
-          <Button variant="primary" type="submit">
-            Guardar Pedido
+          <Button
+            variant="primary"
+            type="submit"
+            disabled={isSubmitting}
+            className="w-full sm:w-auto"
+          >
+            {isSubmitting ? 'Guardando...' : 'Guardar Pedido'}
           </Button>
         </div>
       </form>

@@ -28,15 +28,25 @@ export const useOrders = () => {
     fetchOrders();
   }, [fetchOrders]);
 
-  const updateStatus = async (orderId, newStatus, reason = '') => {
+  const updateStatus = async (orderId, updatePayload, reason = '') => {
     try {
-      const updated = await ordersService.updateOrderStatus(orderId, {
-        toStatus: newStatus,
-        changeReason: reason || `Transición a ${newStatus} desde el panel de pedidos`,
-      });
+      const payload =
+        typeof updatePayload === 'object' && updatePayload !== null
+          ? updatePayload
+          : {
+              toStatus: updatePayload,
+              reason: reason || `Transición a ${updatePayload} desde el panel de pedidos`,
+            };
 
+      const updated = await ordersService.updateOrderStatus(orderId, payload);
+
+      const targetStatus = payload.toStatus;
       setOrders((prev) =>
-        prev.map((o) => (o.id === orderId ? { ...o, ...updated, shippingStatus: updated.shippingStatus || newStatus } : o))
+        prev.map((o) =>
+          o.id === orderId
+            ? { ...o, ...updated, shippingStatus: updated?.shippingStatus || targetStatus }
+            : o
+        )
       );
 
       return updated;

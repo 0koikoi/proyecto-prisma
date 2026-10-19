@@ -6,6 +6,14 @@ import { useState, useEffect } from 'react';
 import { Modal } from '../../../shared/components/Modal';
 import { Button } from '../../../shared/components/Button';
 import { Input } from '../../../shared/components/Input';
+import {
+  isValidPeruvianPhone,
+  sanitizePhoneInput,
+  isValidPersonName,
+  isValidRuc,
+  isValidDni,
+  sanitizeNumericInput,
+} from '../../../shared/utils/validators';
 import { Building2, User, Phone, Mail, FileText, MapPin } from 'lucide-react';
 
 export const SupplierFormModal = ({ isOpen, onClose, onSave, supplierToEdit }) => {
@@ -18,6 +26,7 @@ export const SupplierFormModal = ({ isOpen, onClose, onSave, supplierToEdit }) =
   const [address, setAddress] = useState('');
   const [notes, setNotes] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -41,21 +50,42 @@ export const SupplierFormModal = ({ isOpen, onClose, onSave, supplierToEdit }) =
         setNotes('');
       }
       setErrorMsg('');
+      setIsSubmitting(false);
     }
   }, [isOpen, supplierToEdit]);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!companyName.trim()) {
-      setErrorMsg('La razón social o nombre del taller es obligatorio');
-      return;
-    }
-    if (!phone.trim()) {
-      setErrorMsg('El teléfono principal de contacto es obligatorio');
+    setErrorMsg('');
+
+    if (companyName.trim().length < 3) {
+      setErrorMsg('La razón social o nombre del taller debe tener al menos 3 caracteres.');
       return;
     }
 
-    const hasTaxId = taxId.trim().length > 0;
+    if (contactName.trim() && !isValidPersonName(contactName)) {
+      setErrorMsg('El nombre de la persona de contacto solo debe contener letras y espacios (mínimo 3 caracteres).');
+      return;
+    }
+
+    if (!isValidPeruvianPhone(phone)) {
+      setErrorMsg('El teléfono principal debe ser un celular peruano válido (empieza sí o sí con 9 y tiene 9 dígitos).');
+      return;
+    }
+
+    const trimmedTaxId = taxId.trim();
+    if (trimmedTaxId.length > 0) {
+      if (taxIdType === 'RUC' && !isValidRuc(trimmedTaxId)) {
+        setErrorMsg('El RUC debe contener exactamente 11 dígitos numéricos.');
+        return;
+      }
+      if (taxIdType === 'DNI' && !isValidDni(trimmedTaxId)) {
+        setErrorMsg('El DNI debe contener exactamente 8 dígitos numéricos.');
+        return;
+      }
+    }
+
+    const hasTaxId = trimmedTaxId.length > 0;
 
     const supplierData = {
       ...(supplierToEdit ? { id: supplierToEdit.id } : {}),
@@ -64,12 +94,17 @@ export const SupplierFormModal = ({ isOpen, onClose, onSave, supplierToEdit }) =
       phone: phone.trim(),
       email: email.trim() || null,
       taxIdType: hasTaxId ? taxIdType : null,
-      taxId: hasTaxId ? taxId.trim() : null,
+      taxId: hasTaxId ? trimmedTaxId : null,
       address: address.trim() || null,
       notes: notes.trim() || null,
     };
 
-    onSave(supplierData);
+    try {
+      setIsSubmitting(true);
+      await onSave(supplierData);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -110,32 +145,46 @@ export const SupplierFormModal = ({ isOpen, onClose, onSave, supplierToEdit }) =
             <div className="flex gap-1.5">
               <select
                 value={taxIdType}
-                onChange={(e) => setTaxIdType(e.target.value)}
+                onChange={(e) => {
+                  const newType = e.target.value;
+                  setTaxIdType(newType);
+                  setTaxId((prev) => sanitizeNumericInput(prev, newType === 'RUC' ? 11 : 8));
+                }}
                 className="w-24 px-2.5 py-2 text-xs font-semibold bg-gray-50 border border-gray-300 rounded-lg text-gray-700 outline-none focus:ring-2 focus:ring-gray-900"
               >
-                <option value="RUC">RUC</option>
-                <option value="DNI">DNI</option>
+                <option value="RUC">RUC (11)</option>
+                <option value="DNI">DNI (8)</option>
               </select>
               <input
                 type="text"
-                placeholder="20601234567"
+                placeholder={taxIdType === 'RUC' ? '20601234567' : '71234567'}
                 value={taxId}
-                onChange={(e) => setTaxId(e.target.value)}
+                onChange={(e) =>
+                  setTaxId(sanitizeNumericInput(e.target.value, taxIdType === 'RUC' ? 11 : 8))
+                }
                 className="flex-1 px-3 py-2 text-xs bg-white border border-gray-300 rounded-lg text-gray-900 outline-none focus:ring-2 focus:ring-gray-900"
               />
             </div>
+            <span className="text-[10px] text-gray-400 mt-0.5 block">
+              {taxIdType === 'RUC' ? '11 dígitos numéricos' : '8 dígitos numéricos'}
+            </span>
           </div>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <Input
-            label="Teléfono Principal"
-            placeholder="Ej: 981234567"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            icon={Phone}
-            required
-          />
+          <div>
+            <Input
+              label="Teléfono Principal (Perú)"
+              placeholder="981234567"
+              value={phone}
+              onChange={(e) => setPhone(sanitizePhoneInput(e.target.value))}
+              icon={Phone}
+              required
+            />
+            <span className="text-[11px] text-gray-500 mt-1 block">
+              9 dígitos numéricos iniciando con 9. ({phone.length}/9)
+            </span>
+          </div>
           <Input
             label="Correo Electrónico"
             type="email"
@@ -167,12 +216,27 @@ export const SupplierFormModal = ({ isOpen, onClose, onSave, supplierToEdit }) =
           />
         </div>
 
-        <div className="flex justify-end gap-2 pt-2 border-t border-gray-100">
-          <Button variant="secondary" type="button" onClick={onClose}>
+        <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2.5 pt-3 border-t border-gray-100">
+          <Button
+            variant="secondary"
+            type="button"
+            onClick={onClose}
+            disabled={isSubmitting}
+            className="w-full sm:w-auto"
+          >
             Cancelar
           </Button>
-          <Button variant="primary" type="submit">
-            {supplierToEdit ? 'Guardar Cambios' : 'Registrar Proveedor'}
+          <Button
+            variant="primary"
+            type="submit"
+            disabled={isSubmitting}
+            className="w-full sm:w-auto"
+          >
+            {isSubmitting
+              ? 'Guardando...'
+              : supplierToEdit
+              ? 'Guardar Cambios'
+              : 'Registrar Proveedor'}
           </Button>
         </div>
       </form>

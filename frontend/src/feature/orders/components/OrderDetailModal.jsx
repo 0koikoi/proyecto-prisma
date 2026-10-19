@@ -24,14 +24,22 @@ import {
 } from 'lucide-react';
 import { ORDER_STATUSES, normalizeStatus, buildWhatsAppUrl } from '../utils/orderStatus';
 
-export const OrderDetailModal = ({ isOpen, onClose, order, onUpdateStatus }) => {
+export const OrderDetailModal = ({
+  isOpen,
+  onClose,
+  order,
+  onUpdateStatus,
+  onRequestStatusChange,
+}) => {
   if (!order) return null;
 
   const currentNorm = normalizeStatus(order.shippingStatus || order.status);
   const statusMeta = ORDER_STATUSES[currentNorm] || ORDER_STATUSES.PENDING;
 
   const handleActionClick = (targetStatus) => {
-    if (onUpdateStatus) {
+    if (onRequestStatusChange) {
+      onRequestStatusChange(order, targetStatus);
+    } else if (onUpdateStatus) {
       onUpdateStatus(order.id, targetStatus);
     }
   };
@@ -273,8 +281,8 @@ export const OrderDetailModal = ({ isOpen, onClose, order, onUpdateStatus }) => 
         )}
 
         {/* Footer */}
-        <div className="flex justify-end pt-1">
-          <Button variant="secondary" onClick={onClose}>
+        <div className="flex justify-end pt-2 border-t border-gray-100">
+          <Button variant="secondary" onClick={onClose} className="w-full sm:w-auto">
             Cerrar
           </Button>
         </div>

@@ -17,7 +17,12 @@ import {
 } from 'lucide-react';
 import { ORDER_STATUSES, normalizeStatus, buildWhatsAppUrl } from '../utils/orderStatus';
 
-export const OrdersTable = ({ orders = [], onUpdateStatus, onViewDetail }) => {
+export const OrdersTable = ({
+  orders = [],
+  onUpdateStatus,
+  onViewDetail,
+  onRequestStatusChange,
+}) => {
   const getStatusBadge = (statusStr) => {
     const norm = normalizeStatus(statusStr);
     const meta = ORDER_STATUSES[norm] || ORDER_STATUSES.PENDING;
@@ -178,10 +183,14 @@ export const OrdersTable = ({ orders = [], onUpdateStatus, onViewDetail }) => {
                           onChange={(e) => {
                             const val = e.target.value;
                             if (val && val !== currentNorm) {
-                              onUpdateStatus(o.id, val);
+                              if (onRequestStatusChange) {
+                                onRequestStatusChange(o, val);
+                              } else if (onUpdateStatus) {
+                                onUpdateStatus(o.id, val);
+                              }
                             }
                           }}
-                          className="px-2.5 py-1.5 text-xs font-medium bg-white border border-gray-300 rounded-lg text-gray-700 outline-none focus:ring-2 focus:ring-gray-900 cursor-pointer shadow-xs"
+                          className="px-2.5 py-1.5 text-xs font-semibold bg-white border border-gray-300 rounded-lg text-gray-800 outline-none focus:ring-2 focus:ring-gray-900 cursor-pointer shadow-xs hover:border-gray-400 transition-colors"
                         >
                           {transitions.map((t) => (
                             <option key={t.value} value={t.value} disabled={t.disabled}>
