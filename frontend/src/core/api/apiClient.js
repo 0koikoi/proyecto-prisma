@@ -7,11 +7,7 @@
  *
  * ROLES Y SEGURIDAD:
  *  - En peticiones protegidas envía: Authorization: Bearer <token>
- *  - Maneja respuestas 401 (No autorizado) redirigiendo a /login o limpiando sesión.
- *
- * TODO Keila:
- *  - Al conectar con el backend real en Sprint 6, guardar el token en localStorage al hacer login.
- *  - Configurar refresh token o interceptores si se requiere expiración automática.
+ *  - Maneja respuestas 401 (No autorizado) limpiando y cerrando la sesión.
  */
 
 const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
@@ -24,7 +20,7 @@ const getHeaders = (extraHeaders = {}) => {
   };
 
   if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
+    headers.Authorization = `Bearer ${token}`;
   }
 
   return headers;
@@ -32,21 +28,23 @@ const getHeaders = (extraHeaders = {}) => {
 
 const handleResponse = async (res) => {
   if (res.status === 401) {
-    // Si la sesión expiró o es inválida, limpiar y redirigir
+    // Una respuesta 401 invalida la sesión en toda la aplicación.
     localStorage.removeItem('token');
     localStorage.removeItem('user');
-    // window.location.href = '/login';
+    window.dispatchEvent(new Event('auth:unauthorized'));
   }
 
   if (!res.ok) {
     let errorMessage = `Error ${res.status}: ${res.statusText}`;
     try {
       const errorJson = await res.json();
-      if (errorJson.message) errorMessage = errorJson.message;
+      if (errorJson.message || errorJson.detail) errorMessage = errorJson.message || errorJson.detail;
     } catch {
       // Ignorar si la respuesta de error no es JSON
     }
-    throw new Error(errorMessage);
+    const error = new Error(errorMessage);
+    error.status = res.status;
+    throw error;
   }
 
   // Si no hay contenido (ej: 204 No Content), devolver null

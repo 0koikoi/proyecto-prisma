@@ -1,95 +1,110 @@
-/**
- * RESPONSABLE: Keila
- * MÓDULO: Autenticación
- *
- * Página de login para el personal de Tienda Prisma.
- * Solo acceso con credenciales válidas — NO hay registro público.
- *
- * ROLES DEL SISTEMA (RF02):
- *  - ADMIN: acceso completo a todas las vistas
- *  - VENDEDOR: acceso a POS, Caja e Inventario (solo lectura). NO ve Reportes Financieros.
- *
- * CONEXIÓN CON BACKEND:
- *  - POST /api/auth/login  → body: { username, password } → response: { token, role, name }
- *  - El token JWT debe guardarse en localStorage o httpOnly cookie y enviarse en cada
- *    request como header: Authorization: Bearer {token}
- *
- * TODO Keila: Reemplazar el login simulado por la llamada real a POST /api/auth/login.
- * TODO Keila: Guardar el token JWT en AuthContext y en localStorage.
- * TODO Keila: Al recibir 401 (token expirado), redirigir al login automáticamente.
- */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Lock, User } from 'lucide-react';
+import { ArrowRight, Eye, EyeOff, LockKeyhole, Store, UserRound } from 'lucide-react';
 import { useAuthContext } from '../../core/context/AuthContext';
-import { Input } from '../../shared/components/Input';
-import { Button } from '../../shared/components/Button';
 import { ROUTES } from '../../shared/constants/routes';
 
 export const LoginPage = () => {
-  const { login } = useAuthContext();
+  const { login, isAuthenticated, isLoading } = useAuthContext();
   const navigate = useNavigate();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  useEffect(() => {
+    if (!isLoading && isAuthenticated) navigate(ROUTES.DASHBOARD, { replace: true });
+  }, [isAuthenticated, isLoading, navigate]);
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
     setError('');
+    if (!username.trim()) {
+      setError('Escribe tu nombre de usuario.');
+      return;
+    }
+    if (!password) {
+      setError('Escribe tu contraseña.');
+      return;
+    }
+
+    setIsSubmitting(true);
     try {
-      // TODO Keila: reemplazar con llamada real a POST /api/auth/login
-      // const { token, name, role } = await authService.login({ username, password });
-      login({ username, name: username });
-      navigate(ROUTES.DASHBOARD);
-    } catch (err) {
-      setError('Usuario o contraseña incorrectos.');
+      const signedInUser = await login({ username: username.trim(), password });
+      navigate(signedInUser.mustChangePassword ? ROUTES.PASSWORD_CHANGE : ROUTES.DASHBOARD, { replace: true });
+    } catch (loginError) {
+      setError(loginError.message || 'No se pudo iniciar sesión. Inténtalo nuevamente.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   return (
     <div className="login-screen-wrapper">
       <div className="login-card">
-        {/* Marca */}
-        <div className="text-center mb-8">
-          <div className="w-12 h-12 bg-gray-900 rounded-xl flex items-center justify-center mx-auto mb-4">
-            <span className="text-white font-bold text-xl">P</span>
+        <div className="login-brand">
+          <div className="login-brand-icon">
+            <Store size={23} strokeWidth={2.2} />
           </div>
-          <h1 className="text-xl font-bold text-gray-900">Tienda Prisma</h1>
-          <p className="text-sm text-gray-500 mt-1">Portal de Gestión Interna</p>
+          <p className="login-eyebrow">TIENDA PRISMA</p>
+          <h1 className="login-title">Bienvenida de nuevo</h1>
+          <p className="login-subtitle">Ingresa a tu espacio de trabajo</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <Input
-            label="Usuario"
-            name="username"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            placeholder="tuusuario"
-            icon={User}
-            required
-          />
-          <Input
-            label="Contraseña"
-            name="password"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="••••••••"
-            icon={Lock}
-            required
-          />
+        <form onSubmit={handleSubmit} className="login-form" noValidate>
+          <label className="login-label" htmlFor="username">Usuario</label>
+          <div className="login-input-wrap">
+            <UserRound size={18} aria-hidden="true" />
+            <input
+              autoComplete="username"
+              autoCapitalize="none"
+              id="username"
+              name="username"
+              value={username}
+              onChange={(event) => setUsername(event.target.value)}
+              placeholder="Ingresa tu usuario"
+              maxLength={50}
+              disabled={isSubmitting}
+            />
+          </div>
 
-          {error && (
-            <p className="text-xs text-red-500 text-center -mt-1">{error}</p>
-          )}
+          <label className="login-label" htmlFor="password">Contraseña</label>
+          <div className="login-input-wrap">
+            <LockKeyhole size={18} aria-hidden="true" />
+            <input
+              autoComplete="current-password"
+              id="password"
+              name="password"
+              type={showPassword ? 'text' : 'password'}
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              placeholder="Ingresa tu contraseña"
+              maxLength={100}
+              disabled={isSubmitting}
+            />
+            <button
+              className="login-password-toggle"
+              type="button"
+              onClick={() => setShowPassword((visible) => !visible)}
+              aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+              aria-pressed={showPassword}
+              disabled={isSubmitting}
+            >
+              {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
+          </div>
 
-          <Button type="submit" variant="primary" size="lg" className="w-full mt-2">
-            Iniciar Sesión
-          </Button>
+          {error && <p className="login-error" role="alert">{error}</p>}
+
+          <button className="login-submit" type="submit" disabled={isSubmitting}>
+            <span>{isSubmitting ? 'Ingresando...' : 'Iniciar sesión'}</span>
+            {!isSubmitting && <ArrowRight size={19} aria-hidden="true" />}
+          </button>
         </form>
 
-        <p className="text-center text-xs text-gray-400 mt-6">
-          Acceso restringido para personal autorizado de Tienda Prisma.
+        <p className="login-footer">
+          Acceso exclusivo para el personal autorizado
         </p>
       </div>
     </div>

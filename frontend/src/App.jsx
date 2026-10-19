@@ -5,9 +5,7 @@
  * Define todas las rutas del sistema de gestión de Tienda Prisma.
  * Las rutas protegidas requieren autenticación (ProtectedRoute).
  *
- * TODO Keila: Agregar guard de ROL en las rutas de Reporte Financiero y Configuración
- *             para que solo el rol ADMIN pueda accederlas (HU02 del plan prisma.md).
- * TODO Keila: Cuando el backend esté listo, conectar AuthContext con el token JWT real.
+ * Las rutas privadas validan la sesión JWT y el rol del usuario.
  */
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './core/context/AuthContext';
@@ -18,6 +16,7 @@ import { ROUTES } from './shared/constants/routes';
 
 // Páginas
 import { LoginPage }           from './feature/auth/LoginPage';
+import { PasswordChangePage }  from './feature/auth/PasswordChangePage';
 import { DashboardPage }       from './feature/dashboard/DashboardPage';
 import { InventoryPage }       from './feature/inventory/InventoryPage';
 import { PosPage }             from './feature/pos/PosPage';
@@ -38,6 +37,7 @@ function App() {
 
           {/* Protegidas — requieren autenticación */}
           <Route element={<ProtectedRoute />}>
+            <Route path={ROUTES.PASSWORD_CHANGE} element={<PasswordChangePage />} />
             <Route element={<MainLayout />}>
               <Route path={ROUTES.DASHBOARD}         element={<DashboardPage />} />
               <Route path={ROUTES.INVENTORY}         element={<InventoryPage />} />

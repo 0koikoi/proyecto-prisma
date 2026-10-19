@@ -1,88 +1,74 @@
 package com.prisma.api.infrastructure.config;
 
-import jakarta.servlet.http.HttpServletResponse;
+import com.nimbusds.jose.jwk.source.ImmutableSecret;
+import java.nio.charset.StandardCharsets;
+import javax.crypto.SecretKey;
+import javax.crypto.spec.SecretKeySpec;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
-import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.Customizer;
-import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
-import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
-import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.authorization.AuthorizationDecision;
+import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.jwt.JwtEncoder;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
+import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
+import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 
 @Configuration
-@EnableWebSecurity
-@EnableMethodSecurity
 public class SecurityConfig {
 
-    private static final String[] CATALOG_ENDPOINTS = {
-            "/api/categories", "/api/categories/**", "/api/products", "/api/products/**",
-            "/api/variants", "/api/variants/**", "/api/inventory", "/api/inventory/**"
-    };
-
-    private final JwtAuthenticationFilter jwtAuthFilter;
-
-    public SecurityConfig(JwtAuthenticationFilter jwtAuthFilter) {
-        this.jwtAuthFilter = jwtAuthFilter;
-    }
-
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        http
-                .cors(Customizer.withDefaults())
-                .csrf(AbstractHttpConfigurer::disable)
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .requestCache(AbstractHttpConfigurer::disable)
-                .exceptionHandling(errors -> errors
-                        .authenticationEntryPoint((request, response, exception) -> {
-                            response.setHeader("WWW-Authenticate", "Bearer");
-                            writeSecurityError(response, 401, "UNAUTHORIZED", "Autenticación requerida o token inválido.");
-                        })
-                        .accessDeniedHandler((request, response, exception) ->
-                                writeSecurityError(response, 403, "FORBIDDEN", "No tiene permisos para esta operación.")))
-                .authorizeHttpRequests(auth -> auth
-                        // Endpoints públicos de autenticación
-                        .requestMatchers("/api/auth/**").permitAll()
-                        // Pre-flight OPTIONS CORS permitidos
-                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        .requestMatchers(HttpMethod.GET, CATALOG_ENDPOINTS).hasAnyRole("ADMIN", "VENDEDOR")
-                        .requestMatchers(HttpMethod.HEAD, CATALOG_ENDPOINTS).hasAnyRole("ADMIN", "VENDEDOR")
-                        .requestMatchers(CATALOG_ENDPOINTS).hasRole("ADMIN")
-                        // Todos los demás endpoints requieren autenticación
-                        .anyRequest().authenticated()
-                )
-                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
-
-        return http.build();
-    }
-
-    @Bean
-    public PasswordEncoder passwordEncoder() {
+    PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
 
     @Bean
-    public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
-        return config.getAuthenticationManager();
+    SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        return http
+                .csrf(AbstractHttpConfigurer::disable)
+                .cors(Customizer.withDefaults())
+                .authorizeHttpRequests(authorize -> authorize
+                        .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/auth/me").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/auth/change-password").authenticated()
+                        .requestMatchers("/api/**").access((authentication, context) -> {
+                            var principal = authentication.get().getPrincipal();
+                            boolean passwordChangeRequired = principal instanceof Jwt jwt
+                                    && Boolean.TRUE.equals(jwt.getClaim("mustChangePassword"));
+                            return new AuthorizationDecision(!passwordChangeRequired);
+                        })
+                        .anyRequest().authenticated())
+                .oauth2ResourceServer(resourceServer -> resourceServer.jwt(Customizer.withDefaults()))
+                .build();
     }
 
-    private static void writeSecurityError(HttpServletResponse response, int status, String code, String message)
-            throws IOException {
-        response.setStatus(status);
-        response.setContentType("application/json");
-        response.setCharacterEncoding(StandardCharsets.UTF_8.name());
-        // Only fixed server messages are written here; request and exception data are never serialized.
-        response.getWriter().write("{\"status\":" + status + ",\"code\":\"" + code
-                + "\",\"message\":\"" + message + "\",\"fieldErrors\":{}}");
+    @Bean
+    SecretKey jwtSecretKey(@Value("${jwt.secret}") String secret) {
+        byte[] keyBytes = secret.getBytes(StandardCharsets.UTF_8);
+        if (keyBytes.length < 32) {
+            throw new IllegalArgumentException("JWT_SECRET must contain at least 32 bytes.");
+        }
+        return new SecretKeySpec(keyBytes, "HmacSHA256");
+    }
+
+    @Bean
+    JwtEncoder jwtEncoder(SecretKey jwtSecretKey) {
+        return new NimbusJwtEncoder(new ImmutableSecret<>(jwtSecretKey));
+    }
+
+    @Bean
+    JwtDecoder jwtDecoder(SecretKey jwtSecretKey) {
+        return NimbusJwtDecoder.withSecretKey(jwtSecretKey)
+                .macAlgorithm(MacAlgorithm.HS256)
+                .build();
     }
 }

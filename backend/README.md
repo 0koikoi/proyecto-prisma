@@ -10,13 +10,13 @@ El login `POST /api/auth/login` valida contraseña BCrypt y devuelve un JWT. Env
 
 ## Módulos operativos
 
-| Área | Ruta base | Comportamiento |
-|---|---|---|
-| Autenticación | `/api/auth` | Login y consulta del usuario autenticado. |
-| Categorías | `/api/categories` | Alta, consulta, edición, desactivación y reactivación. |
-| Productos | `/api/products` | Datos generales, clasificación e imágenes mediante URL. |
-| Variantes | `/api/variants` | SKU, código de barras, talla/color, precios y disponibilidad. |
-| Inventario | `/api/inventory/movements` | Historial paginado, filtros, referencias y reversión de ajustes manuales. |
+| Área          | Ruta base                  | Comportamiento                                                            |
+| ------------- | -------------------------- | ------------------------------------------------------------------------- |
+| Autenticación | `/api/auth`                | Login y consulta del usuario autenticado.                                 |
+| Categorías    | `/api/categories`          | Alta, consulta, edición, desactivación y reactivación.                    |
+| Productos     | `/api/products`            | Datos generales, clasificación e imágenes mediante URL.                   |
+| Variantes     | `/api/variants`            | SKU, código de barras, talla/color, precios y disponibilidad.             |
+| Inventario    | `/api/inventory/movements` | Historial paginado, filtros, referencias y reversión de ajustes manuales. |
 
 Consultar [el contrato de Catálogo e Inventario](./CATALOGO_INVENTARIO.md) para rutas completas, ejemplos y reglas de integración. La existencia de entidades de ventas, pedidos y compras no implica que sus operaciones HTTP estén implementadas.
 
@@ -31,19 +31,52 @@ Desde `backend/`:
 .\mvnw.cmd spring-boot:run
 ```
 
-El servidor utiliza el puerto 8080. El perfil `dev` obtiene su conexión de `DB_URL`, `DB_USER` y `DB_PASSWORD`; Flyway puede usar `DB_FLYWAY_URL`, `DB_FLYWAY_USER` y `DB_FLYWAY_PASSWORD` si requiere otra conexión. La firma JWT utiliza `JWT_SECRET`.
-
-**Arrancar el servidor aplica las migraciones pendientes sobre la base configurada.** V3 y V4 comprueban unicidad normalizada; los duplicados históricos deben conciliarse antes. Las migraciones no fusionan ni borran esos registros automáticamente.
-
-## Pruebas aisladas
+Antes de iniciar, copia `.env.example` a `.env` y configura `DB_URL`, `DB_USER`,
+`DB_PASSWORD` y un `JWT_SECRET` aleatorio de al menos 32 bytes. `DB_FLYWAY_URL`
+es opcional y se usa cuando las migraciones necesitan una conexión directa distinta.
+El frontend debe apuntar a `http://localhost:8080/api` mediante `VITE_API_URL`.
+En PowerShell puedes generar un secreto con:
 
 ```powershell
-.\mvnw.cmd clean test
-.\mvnw.cmd -DskipTests package
+[Convert]::ToBase64String([Security.Cryptography.RandomNumberGenerator]::GetBytes(48))
 ```
 
-La suite inicia PostgreSQL **17.11** desechable en un puerto local libre, aplica las migraciones y prueba la API con JWT obtenido mediante el login real. No necesita Docker ni credenciales de Neon. Maven descarga los binarios de prueba cuando faltan en caché.
+La migración inicial crea la cuenta `admin` con contraseña temporal `admin123`;
+cámbiala en el primer acceso. Tras 3 intentos fallidos consecutivos, la cuenta
+queda bloqueada por 10 minutos. Un inicio correcto reinicia el contador.
 
-`LocalPostgresTest` fija las conexiones JPA/Flyway a esa instancia, usa configuración exclusiva y comprueba la conexión antes de limpiar datos ficticios. Surefire excluye el cargador de `.env` del classpath de pruebas. Ejecutar mediante el wrapper de Maven para conservar ese aislamiento.
+## 3. Autenticación
 
-La suite cubre permisos, validaciones, variantes, búsquedas, reservas, concurrencia, idempotencia, reversas y rollback de stock cuando falla el movimiento. Los tests son secuenciales salvo los escenarios concurrentes explícitos.
+- `POST /api/auth/login`: acepta `{ "username": "...", "password": "..." }` y devuelve
+  un token JWT y el perfil público del usuario activo.
+- `GET /api/auth/me`: devuelve el perfil asociado a un JWT válido enviado como
+  JWT en el encabezado HTTP `Authorization`.
+- `POST /api/auth/change-password`: actualiza la contraseña autenticada y devuelve
+  un JWT renovado. Las claves deben tener al menos 8 caracteres, una mayúscula,
+  un número y un símbolo.
+- No existe registro público. Las cuentas se gestionan mediante la base de datos.
+
+---
+
+## 4. Endpoints Principales
+
+| Módulo             | Endpoint Base        | Responsable | Descripción                                               |
+| :----------------- | :------------------- | :---------- | :-------------------------------------------------------- |
+| **Autenticación**  | `/api/auth`          | Keila       | Login (`/login`) y perfil (`/me`) con JWT                 |
+| **Dashboard**      | `/api/dashboard`     | Keila       | Métricas del día (`/summary`) y stock bajo (`/low-stock`) |
+| **Inventario**     | `/api/products`      | Mauricio    | CRUD de productos y búsqueda rápida                       |
+| **Categorías**     | `/api/categories`    | Mauricio    | Catálogo de categorías (Femenina, Urbana, Mascotas)       |
+| **Punto de Venta** | `/api/sales`         | Leo         | Registro transaccional de ventas y descuento de stock     |
+| **Caja**           | `/api/cash-register` | Leo         | Apertura (`/open`), cierre (`/close`) y arqueo            |
+| **Pedidos**        | `/api/orders`        | Zully       | Gestión de órdenes y cambio de estado (`/status`)         |
+| **Proveedores**    | `/api/suppliers`     | Zully       | Directorio de proveedores y compras (`/purchases`)        |
+| **Finanzas**       | `/api/finance`       | Meli        | Resumen financiero (`/summary`) y transacciones           |
+
+---
+
+## 5. Configuración de Base de Datos
+
+La conexión no tiene credenciales por defecto. El perfil `dev` toma la URL,
+usuario y contraseña de `DB_URL`, `DB_USER` y `DB_PASSWORD`; Flyway puede usar
+`DB_FLYWAY_URL` y `DB_FLYWAY_USER` si se requiere una conexión directa a Neon.
+El perfil `prod` también exige `JWT_SECRET` y una URL PostgreSQL con SSL.
