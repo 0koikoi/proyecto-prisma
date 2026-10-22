@@ -96,7 +96,8 @@ export const RestockModal = ({ isOpen, onClose, onSave, suppliers = [], initialS
     const restockData = {
       supplierId: Number(selectedSupplierId),
       supplierName: selectedSupplier ? selectedSupplier.companyName : '',
-      productId: Number(selectedProductId),
+      variantId: Number(selectedProductId),
+      productId: selectedProduct?.productId ? Number(selectedProduct.productId) : Number(selectedProductId),
       productName: selectedProduct ? selectedProduct.name : '',
       productSku: selectedProduct ? selectedProduct.sku : '',
       quantity: qty,
@@ -234,11 +235,11 @@ export const RestockModal = ({ isOpen, onClose, onSave, suppliers = [], initialS
           </div>
         </div>
 
-        <div className="flex justify-end gap-2 pt-2 border-t border-gray-100">
-          <Button variant="secondary" onClick={onClose}>
+        <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2.5 pt-3 border-t border-gray-100">
+          <Button variant="secondary" onClick={onClose} className="w-full sm:w-auto">
             Cancelar
           </Button>
-          <Button variant="primary" type="submit">
+          <Button variant="primary" type="submit" className="w-full sm:w-auto">
             Confirmar Reposición
           </Button>
         </div>

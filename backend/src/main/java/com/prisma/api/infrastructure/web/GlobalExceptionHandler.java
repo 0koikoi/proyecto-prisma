@@ -2,12 +2,15 @@ package com.prisma.api.infrastructure.web;
 
 import com.prisma.api.domain.exceptions.BusinessRuleException;
 import com.prisma.api.domain.exceptions.ResourceNotFoundException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -35,12 +38,12 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(BusinessRuleException.class)
     public ResponseEntity<ApiError> handleBusinessRule(BusinessRuleException ex) {
         ApiError error = ApiError.of(
-                HttpStatus.UNPROCESSABLE_ENTITY.value(),
-                HttpStatus.UNPROCESSABLE_ENTITY.getReasonPhrase(),
+                HttpStatus.UNPROCESSABLE_CONTENT.value(),
+                HttpStatus.UNPROCESSABLE_CONTENT.getReasonPhrase(),
                 ex.getMessage(),
                 ex.getCode()
         );
-        return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(error);
+        return ResponseEntity.status(HttpStatus.UNPROCESSABLE_CONTENT).body(error);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -72,6 +75,41 @@ public class GlobalExceptionHandler {
                 "BAD_REQUEST"
         );
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ApiError> handleUnreadableBody(HttpMessageNotReadableException ex) {
+        ApiError error = ApiError.of(
+                HttpStatus.BAD_REQUEST.value(),
+                HttpStatus.BAD_REQUEST.getReasonPhrase(),
+                "El cuerpo de la solicitud no es válido o tiene valores no reconocidos",
+                "BAD_REQUEST"
+        );
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ApiError> handleConflict(DataIntegrityViolationException ex) {
+        ApiError error = ApiError.of(
+                HttpStatus.CONFLICT.value(),
+                HttpStatus.CONFLICT.getReasonPhrase(),
+                "La operación entró en conflicto con otra en curso o con datos ya registrados. Reintenta.",
+                "CONFLICT"
+        );
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(error);
+    }
+
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<ApiError> handleResponseStatus(ResponseStatusException ex) {
+        HttpStatus status = HttpStatus.valueOf(ex.getStatusCode().value());
+        String code = status == HttpStatus.UNAUTHORIZED ? "INVALID_CREDENTIALS" : status.name();
+        ApiError error = ApiError.of(
+                status.value(),
+                status.getReasonPhrase(),
+                ex.getReason() != null ? ex.getReason() : ex.getMessage(),
+                code
+        );
+        return ResponseEntity.status(status).body(error);
     }
 
     @ExceptionHandler(Exception.class)

@@ -10,6 +10,10 @@ import { toast } from 'sonner';
 import { playSound } from 'react-sounds';
 import { cashService } from '../services/cashService';
 
+// Los mensajes del backend ya vienen en español; un TypeError de fetch es una caída de red.
+const errorMessage = (err, fallback) =>
+  err instanceof TypeError || !err?.message ? fallback : err.message;
+
 export const useCashRegister = () => {
   const [cashStatus, setCashStatus] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -39,16 +43,17 @@ export const useCashRegister = () => {
       playSound('notification/success', { volume: 0.5 });
     } catch (err) {
       console.error('Error opening cash register:', err);
-      toast.error('No se pudo abrir la caja.');
+      toast.error(errorMessage(err, 'No se pudo abrir la caja.'));
       playSound('notification/error', { volume: 0.4 });
     }
   };
 
   const closeCash = async (closeData) => {
     try {
-      await cashService.closeRegister(closeData);
+      const result = await cashService.closeRegister(closeData);
       await fetchStatus();
-      const diff = closeData.difference ?? 0;
+      // Con backend la diferencia oficial es la que calculó el servidor.
+      const diff = result?.difference ?? closeData.difference ?? 0;
       if (diff === 0) {
         toast.success('Caja cerrada. Cuadre perfecto.');
         playSound('notification/success', { volume: 0.5 });
@@ -61,7 +66,7 @@ export const useCashRegister = () => {
       }
     } catch (err) {
       console.error('Error closing cash register:', err);
-      toast.error('No se pudo cerrar la caja.');
+      toast.error(errorMessage(err, 'No se pudo cerrar la caja.'));
       playSound('notification/error', { volume: 0.4 });
     }
   };

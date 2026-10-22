@@ -1,7 +1,7 @@
 package com.prisma.api.infrastructure.config;
 
 import com.prisma.api.domain.entities.User;
-import com.prisma.api.infrastructure.persistence.UserRepository;
+import com.prisma.api.domain.repository.UserRepository;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;

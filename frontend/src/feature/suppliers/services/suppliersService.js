@@ -1,74 +1,68 @@
 /**
- * Directorio de proveedores y reposiciones de stock.
+ * Servicio de proveedores conectado a la API de Spring Boot.
  * Responsable: Zully
  */
 import { apiClient } from '../../../core/api/apiClient';
 
-let MOCK_SUPPLIERS = [
-  {
-    id: 1,
-    companyName: 'Confecciones Textiles Gamarra S.A.C.',
-    contactName: 'Jorge Mendoza',
-    phone: '981234567',
-    email: 'ventas@textilesgamarra.pe',
-    taxId: '20601234567',
-    address: 'Jr. Gamarra 1240, Galería La Virreyna, Stand 305, Lima',
-    productsSupplied: 'Ropa Urbana y Juvenil Femenina',
-  },
-  {
-    id: 2,
-    companyName: 'Pet Fashion Perú',
-    contactName: 'Carla Dávila',
-    phone: '976543210',
-    email: 'contacto@petfashion.pe',
-    taxId: '20509876543',
-    address: 'Av. Iquitos 840, La Victoria, Lima',
-    productsSupplied: 'Capas y arneses para mascotas',
-  },
-];
-
-let MOCK_PURCHASES = [];
-
 export const suppliersService = {
+  // Lista todos los proveedores activos desde la base de datos Neon
   async getSuppliers() {
-    // Modo producción con backend: return apiClient.get('/suppliers');
-    return [...MOCK_SUPPLIERS];
+    return apiClient.get('/suppliers');
   },
 
+  // Obtiene un proveedor por su ID
+  async getSupplierById(id) {
+    return apiClient.get(`/suppliers/${id}`);
+  },
+
+  // Registra un nuevo proveedor en Neon
   async createSupplier(data) {
-    // return apiClient.post('/suppliers', data);
-    const newSupplier = {
-      id: Date.now(),
-      ...data,
-      createdAt: new Date().toISOString(),
-    };
-    MOCK_SUPPLIERS = [newSupplier, ...MOCK_SUPPLIERS];
-    return newSupplier;
+    return apiClient.post('/suppliers', data);
   },
 
+  // Actualiza los datos de un proveedor existente
   async updateSupplier(id, data) {
-    // return apiClient.put(`/suppliers/${id}`, data);
-    MOCK_SUPPLIERS = MOCK_SUPPLIERS.map((s) =>
-      s.id === id ? { ...s, ...data } : s
-    );
-    return { id, ...data };
+    return apiClient.put(`/suppliers/${id}`, data);
+  },
+
+  // Da de baja logica a un proveedor (RN15: conserva compras e historiales)
+  async deactivateSupplier(id) {
+    return apiClient.delete(`/suppliers/${id}`);
+  },
+
+  // Lista los productos suministrados por un proveedor
+  async getSupplierProducts(supplierId) {
+    return apiClient.get(`/suppliers/${supplierId}/products`);
+  },
+
+  // Asocia un producto al catálogo de un proveedor
+  async linkProduct(supplierId, productId) {
+    return apiClient.put(`/suppliers/${supplierId}/products/${productId}`, {});
+  },
+
+  // Desvincula un producto de un proveedor
+  async unlinkProduct(supplierId, productId) {
+    return apiClient.delete(`/suppliers/${supplierId}/products/${productId}`);
   },
 
   /**
-   * RF19: Registra una reposición de stock vinculada a un proveedor.
+   * RF19: Registra una reposición de stock.
    */
   async registerRestock(restockData) {
-    // return apiClient.post('/purchases', restockData);
-    const purchase = {
-      id: `PUR-${Date.now().toString().slice(-4)}`,
-      ...restockData,
-      purchasedAt: new Date().toISOString(),
+    const payload = {
+      supplierId: restockData.supplierId,
+      variantId: restockData.variantId,
+      productId: restockData.productId,
+      quantity: restockData.quantity,
+      costPrice: restockData.costPrice,
+      invoiceNumber: restockData.invoiceNumber,
+      paymentMethod: restockData.paymentMethod,
+      notes: restockData.notes,
     };
-    MOCK_PURCHASES.unshift(purchase);
-    return { success: true, purchase };
+    return apiClient.post('/purchases', payload);
   },
 
   async getPurchasesHistory() {
-    return [...MOCK_PURCHASES];
+    return [];
   },
 };

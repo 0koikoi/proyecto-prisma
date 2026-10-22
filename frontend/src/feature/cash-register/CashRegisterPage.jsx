@@ -10,39 +10,62 @@
  *  3. Botón "Cerrar Caja" (si hay caja activa) → modal de arqueo con cálculo de diferencia
  *  4. Detalle de ventas del turno por método de pago (Efectivo / Yape / Plin / Tarjeta)
  *
- * CONEXIÓN CON BACKEND:
- *  - GET  /api/cash-register/active  → obtener caja abierta actualmente
- *  - POST /api/cash-register/open    → abrir caja con sencillo inicial
- *  - POST /api/cash-register/{id}/close → cerrar caja con conteo físico
+ * CONEXIÓN CON BACKEND (ver cashService):
+ *  - GET  /api/cash-register/status → estado del turno y totales por método de pago
+ *  - POST /api/cash-register/open    → abrir caja con sencillo inicial (solo una caja abierta a la vez)
+ *  - POST /api/cash-register/close   → cerrar caja con el conteo físico
  *
- * TODO Leo: Conectar con GET /api/cash-register/active al cargar la página.
- * TODO Leo: Solo puede haber UNA caja abierta — validar en el backend.
- * TODO Leo: El cierre de caja calcula expectedCash = initialCash + totalCashSales.
- *           El sistema muestra la diferencia (sobrante o faltante).
+ * El efectivo esperado (sencillo inicial + efectivo neto cobrado) y la diferencia
+ * (sobrante o faltante) los calcula el servidor; la pantalla solo los muestra.
  *
  * Atajos de teclado: F2 abre el turno, F4 lo cierra, Esc cierra el modal activo.
  */
 import { useState } from 'react';
 import { Toaster } from 'sonner';
 import { useHotkeys } from 'react-hotkeys-hook';
-import { Lock, Unlock, DollarSign, Smartphone, CreditCard } from 'lucide-react';
+import { Lock, Unlock, DollarSign, Smartphone, CreditCard, Receipt } from 'lucide-react';
 import { useCashRegister } from './hooks/useCashRegister';
+import { useShiftSales } from './hooks/useShiftSales';
+import { TicketReceiptModal } from '../pos/components/TicketReceiptModal';
 import { CashOpenModal } from './components/CashOpenModal';
 import { CashCloseModal } from './components/CashCloseModal';
 import { CashRegisterSkeleton } from './components/CashRegisterSkeleton';
 import { Button } from '../../shared/components/Button';
 import { formatCurrency, formatDate } from '../../shared/utils/formatters';
 
+const PAYMENT_LABELS = { EFECTIVO: 'Efectivo', YAPE: 'Yape', PLIN: 'Plin', TARJETA: 'Tarjeta' };
+
 export const CashRegisterPage = () => {
-  const { cashStatus, openCash, closeCash } = useCashRegister();
+  const { cashStatus, loading, reload, openCash, closeCash } = useCashRegister();
+  // Mientras carga (cashStatus null) no se asume ningún estado.
+  const isShiftOpen = cashStatus?.isOpen !== false;
   const [isOpenModal, setIsOpenModal] = useState(false);
   const [isCloseModal, setIsCloseModal] = useState(false);
+  const [reprintSale, setReprintSale] = useState(null);
+  const { sales: shiftSales, loading: salesLoading } = useShiftSales(cashStatus?.isOpen === true);
 
-  useHotkeys('f2', (e) => { e.preventDefault(); setIsOpenModal(true); });
-  useHotkeys('f4', (e) => { e.preventDefault(); setIsCloseModal(true); });
+  useHotkeys('f2', (e) => { e.preventDefault(); if (!isShiftOpen) setIsOpenModal(true); }, [isShiftOpen]);
+  useHotkeys('f4', (e) => { e.preventDefault(); if (isShiftOpen) setIsCloseModal(true); }, [isShiftOpen]);
   useHotkeys('esc', () => { setIsOpenModal(false); setIsCloseModal(false); }, { enabled: isOpenModal || isCloseModal });
 
-  if (!cashStatus) return <CashRegisterSkeleton />;
+  if (loading && !cashStatus) return <CashRegisterSkeleton />;
+
+  if (!cashStatus) {
+    return (
+      <div className="page-container">
+        <Toaster position="top-center" theme="light" richColors />
+        <div className="content-card flex flex-col items-center justify-center p-8 text-center space-y-3">
+          <p className="text-gray-900 font-bold text-base">No se pudo cargar el estado de la caja</p>
+          <p className="text-gray-500 text-sm max-w-md">
+            Verifica que el backend de Spring Boot esté iniciado en http://localhost:8080 y conectado a la base de datos.
+          </p>
+          <Button variant="primary" onClick={reload}>
+            Reintentar conexión
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   const totalIngresos =
     cashStatus.totalCashSales +
@@ -50,7 +73,7 @@ export const CashRegisterPage = () => {
     cashStatus.totalPlinSales +
     cashStatus.totalCardSales;
 
-  const efectivoEsperado = cashStatus.initialCash + cashStatus.totalCashSales;
+  const efectivoEsperado = cashStatus.expectedCash ?? cashStatus.initialCash + cashStatus.totalCashSales;
 
   return (
     <div className="page-container">
@@ -72,29 +95,39 @@ export const CashRegisterPage = () => {
           </span>
         </div>
         <div className="grid grid-cols-2 lg:flex lg:items-center gap-3 shrink-0">
-          <Button variant="secondary" icon={Lock} onClick={() => setIsCloseModal(true)} className="w-full lg:w-auto">
+          <Button variant="secondary" icon={Lock} onClick={() => setIsCloseModal(true)} disabled={!isShiftOpen} className="w-full lg:w-auto">
             Cerrar Turno
           </Button>
-          <Button variant="primary" icon={Unlock} onClick={() => setIsOpenModal(true)} className="w-full lg:w-auto">
+          <Button variant="primary" icon={Unlock} onClick={() => setIsOpenModal(true)} disabled={isShiftOpen} className="w-full lg:w-auto">
             Abrir Turno
           </Button>
         </div>
       </div>
 
       {/* Estado del turno */}
-      <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <span className="w-3 h-3 rounded-full bg-emerald-500 animate-pulse shrink-0" />
-          <div>
-            <p className="text-sm font-bold text-emerald-900">Caja del Turno: ABIERTA</p>
-            <p className="text-xs text-emerald-700">Abierta por {cashStatus.openedBy ?? 'Personal'} a las {formatDate(cashStatus.openedAt)}</p>
+      {isShiftOpen ? (
+        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <span className="w-3 h-3 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+            <div>
+              <p className="text-sm font-bold text-emerald-900">Caja del Turno: ABIERTA</p>
+              <p className="text-xs text-emerald-700">Abierta por {cashStatus.openedBy ?? 'Personal'} a las {formatDate(cashStatus.openedAt)}</p>
+            </div>
+          </div>
+          <div className="sm:text-right">
+            <p className="text-xs text-emerald-700 font-semibold uppercase tracking-wide">Sencillo Inicial</p>
+            <p className="text-xl font-bold text-emerald-900">{formatCurrency(cashStatus.initialCash)}</p>
           </div>
         </div>
-        <div className="sm:text-right">
-          <p className="text-xs text-emerald-700 font-semibold uppercase tracking-wide">Sencillo Inicial</p>
-          <p className="text-xl font-bold text-emerald-900">{formatCurrency(cashStatus.initialCash)}</p>
+      ) : (
+        <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 flex items-center gap-3">
+          <span className="w-3 h-3 rounded-full bg-gray-400 shrink-0" />
+          <div>
+            <p className="text-sm font-bold text-gray-800">Caja del Turno: CERRADA</p>
+            <p className="text-xs text-gray-500">Abre un turno con el sencillo inicial para poder registrar ventas.</p>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Tarjetas de ventas por método de pago */}
       <div>
@@ -124,6 +157,42 @@ export const CashRegisterPage = () => {
         </p>
       </div>
 
+      {/* Ventas del turno: consulta y reimpresión de ticket */}
+      {isShiftOpen && (
+        <div className="content-card">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-gray-700 font-semibold">Ventas del Turno</h3>
+            <span className="text-xs text-gray-400">
+              {shiftSales.length} {shiftSales.length === 1 ? 'venta' : 'ventas'}
+            </span>
+          </div>
+          {salesLoading ? (
+            <p className="text-sm text-gray-400">Cargando ventas...</p>
+          ) : shiftSales.length === 0 ? (
+            <p className="text-sm text-gray-400">Aún no hay ventas en este turno.</p>
+          ) : (
+            <ul className="divide-y divide-gray-100">
+              {shiftSales.map((sale) => (
+                <li key={sale.id} className="flex items-center justify-between gap-3 py-2.5">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-gray-900">#{sale.ticketNumber}</p>
+                    <p className="text-xs text-gray-500">
+                      {formatDate(sale.createdAt)} · {PAYMENT_LABELS[sale.paymentMethod] ?? sale.paymentMethod}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3 shrink-0">
+                    <span className="text-sm font-bold text-gray-900">{formatCurrency(sale.total)}</span>
+                    <Button variant="secondary" size="sm" icon={Receipt} onClick={() => setReprintSale(sale)}>
+                      Ver ticket
+                    </Button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
       {/* Modales */}
       <CashOpenModal
         isOpen={isOpenModal}
@@ -132,6 +201,13 @@ export const CashRegisterPage = () => {
           await openCash(amt);
           setIsOpenModal(false);
         }}
+      />
+
+      <TicketReceiptModal
+        isOpen={!!reprintSale}
+        onClose={() => setReprintSale(null)}
+        receipt={reprintSale}
+        title="Reimpresión de ticket"
       />
 
       <CashCloseModal

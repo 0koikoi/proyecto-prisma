@@ -60,12 +60,12 @@ export const SuppliersTable = ({ suppliers, onEdit, onRestock }) => {
                 </td>
                 <td>
                   <span className="inline-flex items-center gap-1.5 font-mono text-xs text-gray-700 bg-gray-100 px-2 py-0.5 rounded">
-                    <FileText size={12} className="text-gray-500" /> {s.taxId || '-'}
+                    <FileText size={12} className="text-gray-500" /> {s.taxId ? `${s.taxIdType || 'DOC'}: ${s.taxId}` : '-'}
                   </span>
                 </td>
                 <td>
                   <span className="badge badge-neutral text-xs">
-                    {s.productsSupplied || 'General'}
+                    {s.productsSupplied || 'Prendas y Suministros'}
                   </span>
                 </td>
                 <td className="text-right">

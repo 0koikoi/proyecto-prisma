@@ -10,18 +10,34 @@
  *  - VENDEDOR: acceso restringido a POS, Inventario (lectura), Caja y Pedidos.
  *             NO puede ver Reportes Financieros ni Configuración.
  *
- * TODO Keila: Cuando el backend devuelva el token JWT real, conectar la validación de expiración aquí.
  */
-import { Navigate, Outlet } from 'react-router-dom';
+import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuthContext } from '../context/AuthContext';
 import { ROUTES } from '../../shared/constants/routes';
 
 export const ProtectedRoute = ({ allowedRoles, children }) => {
-  const { isAuthenticated, user } = useAuthContext();
+  const { isAuthenticated, isLoading, user } = useAuthContext();
+  const location = useLocation();
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center text-sm font-medium text-gray-500">
+        Verificando sesión...
+      </div>
+    );
+  }
 
   // Si no está autenticado, redirigir al login
   if (!isAuthenticated) {
     return <Navigate to={ROUTES.LOGIN} replace />;
+  }
+
+  const isPasswordChangeRoute = location.pathname === ROUTES.PASSWORD_CHANGE;
+  if (user?.mustChangePassword && !isPasswordChangeRoute) {
+    return <Navigate to={ROUTES.PASSWORD_CHANGE} replace />;
+  }
+  if (!user?.mustChangePassword && isPasswordChangeRoute) {
+    return <Navigate to={ROUTES.DASHBOARD} replace />;
   }
 
   // Si se especificaron roles permitidos y el usuario no lo tiene, redirigir al dashboard

@@ -7,14 +7,18 @@
  *
  * ROLES Y SEGURIDAD:
  *  - En peticiones protegidas envía: Authorization: Bearer <token>
- *  - Maneja respuestas 401 (No autorizado) redirigiendo a /login o limpiando sesión.
- *
- * TODO Keila:
- *  - Al conectar con el backend real en Sprint 6, guardar el token en localStorage al hacer login.
- *  - Configurar refresh token o interceptores si se requiere expiración automática.
+ *  - Maneja respuestas 401 (No autorizado) limpiando y cerrando la sesión.
  */
 
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
+const CANDIDATE_URLS = [
+  import.meta.env.VITE_API_URL,
+  '/proyecto-prisma/api',
+  '/api',
+  'http://127.0.0.1:8080/api',
+  'http://localhost:8080/api',
+].filter(Boolean);
+
+let activeBaseUrl = CANDIDATE_URLS[0] || 'http://127.0.0.1:8080/api';
 
 const getHeaders = (extraHeaders = {}) => {
   const token = localStorage.getItem('token');
@@ -24,7 +28,7 @@ const getHeaders = (extraHeaders = {}) => {
   };
 
   if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
+    headers.Authorization = `Bearer ${token}`;
   }
 
   return headers;
@@ -32,21 +36,23 @@ const getHeaders = (extraHeaders = {}) => {
 
 const handleResponse = async (res) => {
   if (res.status === 401) {
-    // Si la sesión expiró o es inválida, limpiar y redirigir
+    // Una respuesta 401 invalida la sesión en toda la aplicación.
     localStorage.removeItem('token');
     localStorage.removeItem('user');
-    // window.location.href = '/login';
+    window.dispatchEvent(new Event('auth:unauthorized'));
   }
 
   if (!res.ok) {
     let errorMessage = `Error ${res.status}: ${res.statusText}`;
     try {
       const errorJson = await res.json();
-      if (errorJson.message) errorMessage = errorJson.message;
+      if (errorJson.message || errorJson.detail) errorMessage = errorJson.message || errorJson.detail;
     } catch {
       // Ignorar si la respuesta de error no es JSON
     }
-    throw new Error(errorMessage);
+    const error = new Error(errorMessage);
+    error.status = res.status;
+    throw error;
   }
 
   // Si no hay contenido (ej: 204 No Content), devolver null
@@ -54,47 +60,66 @@ const handleResponse = async (res) => {
   return res.json();
 };
 
+const executeWithFailover = async (endpoint, options) => {
+  const urlsToTry = [
+    activeBaseUrl,
+    ...CANDIDATE_URLS.filter((url) => url !== activeBaseUrl),
+  ];
+
+  let lastError;
+  for (const baseUrl of urlsToTry) {
+    try {
+      const res = await fetch(`${baseUrl}${endpoint}`, options);
+      activeBaseUrl = baseUrl;
+      return await handleResponse(res);
+    } catch (err) {
+      lastError = err;
+      // Solo intentar la siguiente URL candidata si fue fallo de red/conexión (TypeError: Failed to fetch)
+      if (!(err instanceof TypeError)) {
+        throw err;
+      }
+    }
+  }
+
+  throw lastError;
+};
+
 export const apiClient = {
-  async get(endpoint, extraHeaders = {}) {
-    const res = await fetch(`${BASE_URL}${endpoint}`, {
+  get(endpoint, extraHeaders = {}) {
+    return executeWithFailover(endpoint, {
       method: 'GET',
       headers: getHeaders(extraHeaders),
     });
-    return handleResponse(res);
   },
 
-  async post(endpoint, data, extraHeaders = {}) {
-    const res = await fetch(`${BASE_URL}${endpoint}`, {
+  post(endpoint, data, extraHeaders = {}) {
+    return executeWithFailover(endpoint, {
       method: 'POST',
       headers: getHeaders(extraHeaders),
       body: JSON.stringify(data),
     });
-    return handleResponse(res);
   },
 
-  async put(endpoint, data, extraHeaders = {}) {
-    const res = await fetch(`${BASE_URL}${endpoint}`, {
+  put(endpoint, data, extraHeaders = {}) {
+    return executeWithFailover(endpoint, {
       method: 'PUT',
       headers: getHeaders(extraHeaders),
       body: JSON.stringify(data),
     });
-    return handleResponse(res);
   },
 
-  async patch(endpoint, data, extraHeaders = {}) {
-    const res = await fetch(`${BASE_URL}${endpoint}`, {
+  patch(endpoint, data, extraHeaders = {}) {
+    return executeWithFailover(endpoint, {
       method: 'PATCH',
       headers: getHeaders(extraHeaders),
       body: JSON.stringify(data),
     });
-    return handleResponse(res);
   },
 
-  async delete(endpoint, extraHeaders = {}) {
-    const res = await fetch(`${BASE_URL}${endpoint}`, {
+  delete(endpoint, extraHeaders = {}) {
+    return executeWithFailover(endpoint, {
       method: 'DELETE',
       headers: getHeaders(extraHeaders),
     });
-    return handleResponse(res);
   },
 };

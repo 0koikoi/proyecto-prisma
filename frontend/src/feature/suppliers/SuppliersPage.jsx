@@ -96,18 +96,19 @@ export const SuppliersPage = () => {
 
   return (
     <div className="page-container">
-      <div className="page-header">
+      <div className="page-header flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
         <div>
-          <h1>Directorio de Proveedores</h1>
-          <p className="text-sm text-gray-500 mt-0.5">
+          <h1 className="page-title">Directorio de Proveedores</h1>
+          <p className="page-subtitle mt-0.5">
             Talleres de confección, distribuidores de moda y compras de reposición (RF18, RF19).
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
           <Button
             variant="secondary"
             icon={PackagePlus}
             onClick={() => handleOpenRestock(null)}
+            className="w-full sm:w-auto"
           >
             Reponer Stock
           </Button>
@@ -115,6 +116,7 @@ export const SuppliersPage = () => {
             variant="primary"
             icon={Plus}
             onClick={handleOpenNewSupplier}
+            className="w-full sm:w-auto"
           >
             Nuevo Proveedor
           </Button>

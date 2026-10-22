@@ -1,59 +1,82 @@
-# Tienda Prisma — Backend API (Spring Boot)
+# Tienda Prisma — Backend
 
-API REST centralizada para la plataforma de gestión de Tienda Prisma, construida con **Spring Boot 4.1**, **Java 25**, **Spring Data JPA** y conectada a **PostgreSQL 16**.
+API con Spring Boot 4.1.1, Java 25, Spring Data JPA, PostgreSQL, Flyway y autenticación JWT.
 
----
+## Funcionamiento
 
-## 1. Stack Tecnológico
+La solicitud pasa por controlador → servicio transaccional → repositorio JPA → PostgreSQL. Los controladores validan el JSON, los servicios aplican permisos y reglas, y Flyway versiona el esquema. Hibernate lo verifica mediante `ddl-auto=validate`.
 
-- **Lenguaje:** Java 25 (LTS)
-- **Framework:** Spring Boot 4.1.1
-- **Persistencia:** Spring Data JPA + Hibernate
-- **Base de Datos:** PostgreSQL 16 (Local Docker o Neon en la nube)
-- **Seguridad:** Spring Security + JWT (Planificado Sprint 6)
-- **Gestor de Dependencias:** Maven (vía `mvnw` / `mvnw.cmd`)
+El login `POST /api/auth/login` valida contraseña BCrypt y devuelve un JWT. Enviar `Authorization: Bearer <token>` en las operaciones protegidas. Catálogo e Inventario usan esa misma autenticación.
 
----
+## Módulos operativos
 
-## 2. Requisitos Previos y Ejecución
+| Área          | Ruta base                  | Comportamiento                                                            |
+| ------------- | -------------------------- | ------------------------------------------------------------------------- |
+| Autenticación | `/api/auth`                | Login y consulta del usuario autenticado.                                 |
+| Categorías    | `/api/categories`          | Alta, consulta, edición, desactivación y reactivación.                    |
+| Productos     | `/api/products`            | Datos generales, clasificación e imágenes mediante URL.                   |
+| Variantes     | `/api/variants`            | SKU, código de barras, talla/color, precios y disponibilidad.             |
+| Inventario    | `/api/inventory/movements` | Historial paginado, filtros, referencias y reversión de ajustes manuales. |
 
-Asegurarse de tener configurado `JAVA_HOME` apuntando al JDK 25:
+Consultar [el contrato de Catálogo e Inventario](./CATALOGO_INVENTARIO.md) para rutas completas, ejemplos y reglas de integración. La existencia de entidades de ventas, pedidos y compras no implica que sus operaciones HTTP estén implementadas.
+
+## Desarrollo
+
+Configurar un **JDK 25** y las variables de [.env.example](./.env.example). Usar credenciales de una base de desarrollo propia. No guardar `.env` en Git.
+
+Desde `backend/`:
 
 ```powershell
-# Definir JAVA_HOME temporalmente si no está en variables del sistema
-$env:JAVA_HOME = "C:\Program Files\Java\jdk-25.0.3"
-
-# Compilar el proyecto
 .\mvnw.cmd compile
-
-# Ejecutar las pruebas unitarias
-.\mvnw.cmd test
-
-# Iniciar la aplicación (puerto 8080)
 .\mvnw.cmd spring-boot:run
 ```
 
+Antes de iniciar, copia `.env.example` a `.env` y configura `DB_URL`, `DB_USER`,
+`DB_PASSWORD` y un `JWT_SECRET` aleatorio de al menos 32 bytes. `DB_FLYWAY_URL`
+es opcional y se usa cuando las migraciones necesitan una conexión directa distinta.
+El frontend debe apuntar a `http://localhost:8080/api` mediante `VITE_API_URL`.
+En PowerShell puedes generar un secreto con:
+
+```powershell
+[Convert]::ToBase64String([Security.Cryptography.RandomNumberGenerator]::GetBytes(48))
+```
+
+La migración inicial crea la cuenta `admin` con contraseña temporal `admin123`;
+cámbiala en el primer acceso. Tras 3 intentos fallidos consecutivos, la cuenta
+queda bloqueada por 10 minutos. Un inicio correcto reinicia el contador.
+
+## 3. Autenticación
+
+- `POST /api/auth/login`: acepta `{ "username": "...", "password": "..." }` y devuelve
+  un token JWT y el perfil público del usuario activo.
+- `GET /api/auth/me`: devuelve el perfil asociado a un JWT válido enviado como
+  JWT en el encabezado HTTP `Authorization`.
+- `POST /api/auth/change-password`: actualiza la contraseña autenticada y devuelve
+  un JWT renovado. Las claves deben tener al menos 8 caracteres, una mayúscula,
+  un número y un símbolo.
+- No existe registro público. Las cuentas se gestionan mediante la base de datos.
+
 ---
 
-## 3. Endpoints Principales
+## 4. Endpoints Principales
 
-| Módulo | Endpoint Base | Responsable | Descripción |
-| :--- | :--- | :--- | :--- |
-| **Autenticación** | `/api/auth` | Keila | Login (`/login`) y perfil (`/me`) con JWT |
-| **Dashboard** | `/api/dashboard` | Keila | Métricas del día (`/summary`) y stock bajo (`/low-stock`) |
-| **Inventario** | `/api/products` | Mauricio | CRUD de productos y búsqueda rápida |
-| **Categorías** | `/api/categories` | Mauricio | Catálogo de categorías (Femenina, Urbana, Mascotas) |
-| **Punto de Venta** | `/api/sales` | Leo | Registro transaccional de ventas y descuento de stock |
-| **Caja** | `/api/cash-register` | Leo | Apertura (`/open`), cierre (`/close`) y arqueo |
-| **Pedidos** | `/api/orders` | Zully | Gestión de órdenes y cambio de estado (`/status`) |
-| **Proveedores** | `/api/suppliers` | Zully | Directorio de proveedores y compras (`/purchases`) |
-| **Finanzas** | `/api/finance` | Meli | Resumen financiero (`/summary`) y transacciones |
+| Módulo             | Endpoint Base        | Responsable | Descripción                                               |
+| :----------------- | :------------------- | :---------- | :-------------------------------------------------------- |
+| **Autenticación**  | `/api/auth`          | Keila       | Login (`/login`) y perfil (`/me`) con JWT                 |
+| **Dashboard**      | `/api/dashboard`     | Keila       | Métricas del día (`/summary`) y stock bajo (`/low-stock`) |
+| **Inventario**     | `/api/products`      | Mauricio    | CRUD de productos y búsqueda rápida                       |
+| **Categorías**     | `/api/categories`    | Mauricio    | Catálogo de categorías (Femenina, Urbana, Mascotas)       |
+| **Punto de Venta** | `/api/sales`         | Leo         | Registro transaccional de ventas y descuento de stock     |
+| **Caja**           | `/api/cash-register` | Leo         | Apertura (`/open`), cierre (`/close`) y arqueo            |
+| **Pedidos**        | `/api/orders`        | Zully       | Gestión de órdenes y cambio de estado (`/status`)         |
+| **Proveedores**    | `/api/suppliers`     | Zully       | Directorio de proveedores y compras (`/purchases`)        |
+| **Finanzas**       | `/api/finance`       | Meli        | Resumen financiero (`/summary`) y transacciones           |
 
 ---
 
-## 4. Configuración de Base de Datos
+## 5. Configuración de Base de Datos
 
-Las credenciales por defecto en `src/main/resources/application.properties` se sincronizan con `database/docker-compose.yml`:
-- **URL:** `jdbc:postgresql://localhost:5432/prisma_db`
-- **Usuario:** `prisma_user`
-- **Contraseña:** `prisma_password`
+La conexión no tiene credenciales por defecto. El perfil `dev` toma la URL,
+usuario y contraseña de `DB_URL`, `DB_USER` y `DB_PASSWORD`; Flyway puede usar
+`DB_FLYWAY_URL` y `DB_FLYWAY_USER` si se requiere una conexión directa a Neon.
+El perfil `prod` también exige `JWT_SECRET` y una URL PostgreSQL con SSL.
