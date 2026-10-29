@@ -52,7 +52,7 @@ public class AuthController {
             @NotBlank @Size(min = 8, max = 100)
             @Pattern(
                     regexp = "^(?=.*[A-Z])(?=.*\\d)(?=.*[\\W_]).+$",
-                    message = "La contraseña debe tener una mayúscula, un número y un símbolo.")
+                    message = "La contraseña debe tener una mayúscula, un número y un símbolo como mínimo.")
             String newPassword) {
     }
 }
