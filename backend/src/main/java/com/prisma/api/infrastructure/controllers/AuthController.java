@@ -48,11 +48,14 @@ public class AuthController {
     }
 
     public record ChangePasswordRequest(
-            @NotBlank @Size(max = 100) String currentPassword,
-            @NotBlank @Size(min = 8, max = 100)
-            @Pattern(
-                    regexp = "^(?=.*[A-Z])(?=.*\\d)(?=.*[\\W_]).+$",
-                    message = "La contraseña debe tener una mayúscula, un número y un símbolo.")
-            String newPassword) {
-    }
+        @NotBlank @Size(max = 100) String currentPassword,
+        
+        @NotBlank 
+        @Size(min = 8, max = 100)
+        @Pattern(
+            regexp = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[\\W_])[^\\s]{8,100}$",
+            message = "La contraseña debe tener al menos una minúscula, una mayúscula, un número y un símbolo. No se permiten espacios en blanco."
+        )
+        String newPassword
+) {}
 }
